@@ -31,6 +31,33 @@ ileride Supabase adaptörü eklendiğinde cihazlar arası gerçek senkron devrey
 ve arayüz ekranlarında değişiklik gerekmeyecek. Supabase anahtarları da koda
 gömülmeyecek, uygulama içinden girilecek.
 
+## Ekranlar
+
+- **Bugün** — Günlük giriş formu. Kampın kaçıncı günü olduğu ve kaç alanın doldurulduğu üstte.
+- **Hafta** — Pazar değerlendirmesi (özgüven puanı + not, ölçümler, dört metin alanı), haftanın
+  otomatik özeti ve *bu hafta ↔ geçen hafta* karşılaştırma tablosu.
+  Bel / kol / kilo **haftada yalnızca bir kez** girilir; kaydedildikten sonra kilitlenir, ikinci
+  giriş kabul edilmez. Yanlış girildiyse kilit elle açılabilir.
+- **Trendler** — Her metrik için gün gün grafik. Süre ve sayfa gibi biriken metrikler bar
+  (hangi gün ne kadar), puan ve oranlar çizgi + 7 günlük hareketli ortalama. Üstte
+  *ilk 2 hafta ↔ son 2 hafta* tablosu.
+- **Hedefler** — Bel (94 → 88 cm) ve kol (36 → 39 cm) için gerçek ölçüm çizgisi ile hedef
+  çizgisi üst üste; kat edilen yol, bugün olunması gereken değer ve mevcut tempoyla kamp
+  sonunda nerede olunacağı.
+- **Geçmiş** — Kampın tamamının takvim ısı haritası, giriş ve antrenman serileri; geçmiş bir güne
+  dokunup düzenleme.
+- **Ayarlar** — Kamp tarihleri, tema, alan aç/kapa, JSON yedek al / geri yükle, demo verisi.
+
+## Yayın
+
+`main` veya geliştirme dalına push edildiğinde GitHub Actions derleyip GitHub Pages'e yayınlar
+(`.github/workflows/deploy.yml`).
+
+**Tek seferlik kurulum:** GitHub → repo **Settings → Pages → Source = GitHub Actions**.
+
+Uygulama bir PWA'dır: telefonda tarayıcıdan açıp "Ana ekrana ekle" dendiğinde uygulama gibi
+çalışır ve internet olmadan da açılır.
+
 ## Geliştirme
 
 ```bash

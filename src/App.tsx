@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Bugun } from './pages/Bugun.tsx'
 import { Hafta } from './pages/Hafta.tsx'
-import { Trendler } from './pages/Trendler.tsx'
-import { Hedefler } from './pages/Hedefler.tsx'
 import { Gecmis } from './pages/Gecmis.tsx'
 import { Ayarlar } from './pages/Ayarlar.tsx'
+
+// Grafik kütüphanesi ağır; her gün açılan Bugün ekranını yavaşlatmasın diye
+// yalnızca grafik ekranlarına girildiğinde yüklenir.
+const Trendler = lazy(() => import('./pages/Trendler.tsx').then((m) => ({ default: m.Trendler })))
+const Hedefler = lazy(() => import('./pages/Hedefler.tsx').then((m) => ({ default: m.Hedefler })))
 import { useStore } from './state/store.tsx'
 
 type SekmeId = 'bugun' | 'hafta' | 'trendler' | 'hedefler' | 'gecmis' | 'ayarlar'
@@ -18,12 +21,20 @@ const SEKMELER: { id: SekmeId; label: string; ikon: string; altBar: boolean }[] 
   { id: 'ayarlar', label: 'Ayarlar', ikon: '⚙️', altBar: false },
 ]
 
+function Yukleniyor() {
+  return (
+    <p className="kart p-6 text-center text-sm" style={{ color: 'var(--c-ink-3)' }}>
+      Grafikler yükleniyor…
+    </p>
+  )
+}
+
 function Ekran({ sekme }: { sekme: SekmeId }) {
   switch (sekme) {
     case 'bugun': return <Bugun />
     case 'hafta': return <Hafta />
-    case 'trendler': return <Trendler />
-    case 'hedefler': return <Hedefler />
+    case 'trendler': return <Suspense fallback={<Yukleniyor />}><Trendler /></Suspense>
+    case 'hedefler': return <Suspense fallback={<Yukleniyor />}><Hedefler /></Suspense>
     case 'gecmis': return <Gecmis />
     case 'ayarlar': return <Ayarlar />
   }
