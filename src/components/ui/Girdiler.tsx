@@ -175,6 +175,73 @@ export function Sayi({
   )
 }
 
+
+// ── Süre: saat + dakika (7 sa 15 dk). Değer ondalık saat olarak saklanır. ──
+export function Sure({
+  deger,
+  onChange,
+  max = 24,
+  etiketi,
+}: {
+  deger: number | undefined
+  onChange: (v: number | undefined) => void
+  max?: number
+  etiketi: string
+}) {
+  const saat = deger === undefined ? undefined : Math.floor(deger)
+  // Kayan nokta artığı 14.999… gibi değerler üretmesin diye yuvarlanır
+  const dakika = deger === undefined ? undefined : Math.round((deger - Math.floor(deger)) * 60)
+
+  const birlestir = (sa: number | undefined, dk: number | undefined) => {
+    if (sa === undefined && dk === undefined) return onChange(undefined)
+    const toplam = (sa ?? 0) + (dk ?? 0) / 60
+    onChange(Math.min(Math.max(Math.round(toplam * 60) / 60, 0), max))
+  }
+
+  const kutu = (
+    tip: 'saat' | 'dakika',
+    v: number | undefined,
+    ust: number,
+    ek: string,
+  ) => (
+    <div className="relative flex-1">
+      <input
+        type="number"
+        inputMode="numeric"
+        className="girdi rakam text-center"
+        style={{ paddingRight: '2.2rem' }}
+        min={0}
+        max={ust}
+        step={tip === 'dakika' ? 5 : 1}
+        value={v ?? ''}
+        placeholder="—"
+        aria-label={`${etiketi} ${tip}`}
+        onChange={(e) => {
+          const ham = e.target.value
+          const n = ham === '' ? undefined : Number(ham)
+          const gecerli = n === undefined || !Number.isFinite(n) ? undefined : n
+          if (tip === 'saat') birlestir(gecerli, dakika)
+          else birlestir(saat, gecerli)
+        }}
+      />
+      <span
+        aria-hidden="true"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+        style={{ color: 'var(--c-ink-3)' }}
+      >
+        {ek}
+      </span>
+    </div>
+  )
+
+  return (
+    <div className="flex items-center gap-2">
+      {kutu('saat', saat, max, 'sa')}
+      {kutu('dakika', dakika, 59, 'dk')}
+    </div>
+  )
+}
+
 // ── Evet / Hayır ─────────────────────────────────────────────────────────
 export function EvetHayir({
   deger,
@@ -271,6 +338,15 @@ export function MetrikAlani({
             deger={deger as number | undefined}
             onChange={onChange}
             adim={def.step ?? 5}
+            etiketi={def.label}
+          />
+        )
+      case 'sure':
+        return (
+          <Sure
+            deger={deger as number | undefined}
+            onChange={onChange}
+            max={def.max ?? 24}
             etiketi={def.label}
           />
         )

@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import type { MetricDef } from '../../lib/metrics.ts'
 import type { NoktaSerisi } from '../../lib/stats.ts'
-import { hareketliOrtalama } from '../../lib/stats.ts'
+import { hareketliOrtalama, sureBicimi } from '../../lib/stats.ts'
 import { gunAdiKisa, kisaTarih, uzunTarih } from '../../lib/date.ts'
 import { useTemaRenkleri } from '../../state/tema.ts'
 
@@ -37,6 +37,8 @@ function Balon({
   const bicim = (v: number | null) => {
     if (v === null) return '—'
     if (def.type === 'bool') return v >= 0.5 ? 'Evet' : 'Hayır'
+    if (def.type === 'sure') return sureBicimi(v)
+    if (def.type === 'percent') return `%${Number.isInteger(v) ? v : v.toFixed(1)}`
     return `${Number.isInteger(v) ? v : v.toFixed(1)}${def.birim ? ` ${def.birim}` : ''}`
   }
   return (

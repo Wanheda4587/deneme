@@ -5,7 +5,7 @@ import { METRIKLER, SUTUNLAR } from '../lib/metrics.ts'
 import type { MetrikId } from '../lib/metrics.ts'
 import type { Pillar } from '../lib/types.ts'
 import { bugun as bugunIso, gunEkle, gunFarki, kampGunleri } from '../lib/date.ts'
-import { birikenMi, degisimYonu, metrikSerisi, ortalama, toplam } from '../lib/stats.ts'
+import { birikenMi, degisimYonu, metrikSerisi, ortalama, sureBicimi, toplam } from '../lib/stats.ts'
 import { useStore } from '../state/store.tsx'
 
 type Aralik = 14 | 30 | 0 // 0 = tüm kamp
@@ -167,6 +167,7 @@ export function Trendler() {
             : (() => {
                 const o = ortalama(degerler)
                 if (o === null) return '—'
+                if (def.type === 'sure') return `ort. ${sureBicimi(o)}`
                 // Yüzde işareti Türkçede başa gelir
                 if (def.type === 'percent') return `ort. %${o.toFixed(1)}`
                 return `ort. ${o.toFixed(1)}${def.birim ? ` ${def.birim}` : ''}`
@@ -196,7 +197,6 @@ export function Trendler() {
               def={def}
               seri={seri}
               tip={biriken || def.type === 'bool' ? 'bar' : 'cizgi'}
-              ters
             />
           </Kart>
         )
@@ -247,9 +247,11 @@ function TamEkranGrafik({
         ? `toplam ${Math.round(toplam(degerler))}${def.birim ? ` ${def.birim}` : ''}`
         : def.type === 'bool'
           ? `${degerler.filter((d) => d === 1).length} gün`
-          : def.type === 'percent'
-            ? `ort. %${(ortalama(degerler) ?? 0).toFixed(1)}`
-            : `ort. ${(ortalama(degerler) ?? 0).toFixed(1)}${def.birim ? ` ${def.birim}` : ''}`
+          : def.type === 'sure'
+            ? `ort. ${sureBicimi(ortalama(degerler))}`
+            : def.type === 'percent'
+              ? `ort. %${(ortalama(degerler) ?? 0).toFixed(1)}`
+              : `ort. ${(ortalama(degerler) ?? 0).toFixed(1)}${def.birim ? ` ${def.birim}` : ''}`
 
   return (
     <div

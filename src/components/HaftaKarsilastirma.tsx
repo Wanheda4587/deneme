@@ -1,14 +1,24 @@
 import type { DayEntry } from '../lib/types.ts'
 import { METRIKLER, SUTUN_HARITASI } from '../lib/metrics.ts'
 import type { MetricDef } from '../lib/metrics.ts'
-import { birikenMi, degisimYonu, haftaDegeri, haftaOzeti, yuzdeDegisim } from '../lib/stats.ts'
+import {
+  birikenMi,
+  degisimYonu,
+  haftaDegeri,
+  haftaOzeti,
+  sureBicimi,
+  yuzdeDegisim,
+} from '../lib/stats.ts'
 import { gunEkle } from '../lib/date.ts'
 
 function sayiBicimi(v: number | null, def: MetricDef): string {
   if (v === null) return '—'
   // Evet/Hayır metriği ortalama olarak 0-1 arası çıkar; gün oranı olarak okunur.
   if (def.type === 'bool') return `%${Math.round(v * 100)}`
+  if (def.type === 'sure') return sureBicimi(v)
   const s = Number.isInteger(v) ? String(v) : v.toFixed(1)
+  // Yüzde işareti Türkçede başa gelir
+  if (def.type === 'percent') return `%${s}`
   return def.birim ? `${s} ${def.birim}` : s
 }
 

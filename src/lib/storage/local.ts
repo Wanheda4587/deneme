@@ -6,14 +6,18 @@ import { VARSAYILAN_AYARLAR } from './adapter.ts'
 
 const ANAHTAR = 'kamp90:v1'
 
+/** Şema sürümü. Göçlerin bir kez çalışmasını sağlar. */
+const SEMA_SURUMU = 2
+
 interface Depo {
+  surum?: number
   days: Record<string, DayEntry>
   weeks: Record<string, WeekEntry>
   settings: Settings
 }
 
 function bosDepo(): Depo {
-  return { days: {}, weeks: {}, settings: { ...VARSAYILAN_AYARLAR } }
+  return { surum: SEMA_SURUMU, days: {}, weeks: {}, settings: { ...VARSAYILAN_AYARLAR } }
 }
 
 /**
@@ -23,6 +27,25 @@ function bosDepo(): Depo {
  */
 function goc(depo: Depo): boolean {
   let degisti = false
+  const surum = depo.surum ?? 1
+
+  // Sürüm 2: uyku kalitesi, enerji, mutluluk ve beslenme 1-10 ölçeğinden
+  // yüzdeye geçti. Eski değerler on ile çarpılır (7/10 → %70). Sürüm damgası
+  // sayesinde bu dönüşüm yalnızca bir kez uygulanır.
+  if (surum < 2) {
+    const YUZDEYE = ['uykuKalitesi', 'enerji', 'mutluluk', 'beslenme'] as const
+    for (const gun of Object.values(depo.days)) {
+      for (const alan of YUZDEYE) {
+        const v = gun[alan]
+        if (typeof v === 'number' && Number.isFinite(v) && v <= 10) {
+          gun[alan] = Math.round(v * 10 * 10) / 10
+          degisti = true
+        }
+      }
+    }
+    depo.surum = SEMA_SURUMU
+    degisti = true
+  }
 
   for (const gun of Object.values(depo.days)) {
     // Kitap takibi sayfadan dakikaya geçti. Sayı birebir taşınır (yaklaşık
@@ -57,6 +80,7 @@ function oku(): Depo {
     if (!ham) return bosDepo()
     const veri = JSON.parse(ham) as Partial<Depo>
     const depo: Depo = {
+      surum: veri.surum,
       days: veri.days ?? {},
       weeks: veri.weeks ?? {},
       settings: { ...VARSAYILAN_AYARLAR, ...(veri.settings ?? {}) },
@@ -121,7 +145,7 @@ export class LocalStorageAdapter implements StorageAdapter {
   async tumunuDisaAktar(): Promise<Backup> {
     const depo = oku()
     return {
-      surum: 1,
+      surum: depo.surum ?? SEMA_SURUMU,
       disaAktarma: new Date().toISOString(),
       days: Object.values(depo.days).sort((a, b) => a.date.localeCompare(b.date)),
       weeks: Object.values(depo.weeks).sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
@@ -131,6 +155,7 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async tumunuIceAktar(yedek: Backup): Promise<void> {
     const depo: Depo = {
+      surum: yedek.surum,
       days: Object.fromEntries((yedek.days ?? []).map((g) => [g.date, g])),
       weeks: Object.fromEntries((yedek.weeks ?? []).map((h) => [h.weekStart, h])),
       settings: { ...VARSAYILAN_AYARLAR, ...(yedek.settings ?? {}) },

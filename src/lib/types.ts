@@ -105,7 +105,8 @@ export interface Settings {
 }
 
 export interface Backup {
-  surum: 1
+  /** Şema sürümü — geri yüklerken göçün çalışıp çalışmayacağını belirler. */
+  surum: number
   disaAktarma: string
   days: DayEntry[]
   weeks: WeekEntry[]

@@ -260,7 +260,43 @@ export function mikroDurum(
 export function mikroBicim(durum: MikroDurum, deger: number): string {
   const { def, hedef } = durum
   if (hedef.tur === 'gun') return `${Math.round(deger)} gün`
+  if (def.type === 'sure') return sureBicimi(deger)
   const yuvarlak = Number.isInteger(deger) ? String(deger) : deger.toFixed(1)
   if (def.type === 'percent') return `%${yuvarlak}`
   return def.birim ? `${yuvarlak} ${def.birim}` : yuvarlak
+}
+
+// ── Biçimlendirme ve kalori özeti ──────────────────────────────────────────
+
+/** Ondalık saati "7 sa 15 dk" biçimine çevirir. */
+export function sureBicimi(saatOndalik: number | null): string {
+  if (saatOndalik === null) return '—'
+  const toplamDk = Math.round(saatOndalik * 60)
+  const sa = Math.floor(toplamDk / 60)
+  const dk = toplamDk % 60
+  if (sa === 0) return `${dk} dk`
+  if (dk === 0) return `${sa} sa`
+  return `${sa} sa ${dk} dk`
+}
+
+/** Binlik ayraçlı, işaretli kalori yazısı: "−2.000 kcal" / "+450 kcal". */
+export function kaloriBicimi(net: number): string {
+  const isaret = net < 0 ? '−' : net > 0 ? '+' : ''
+  return `${isaret}${Math.abs(Math.round(net)).toLocaleString('tr-TR')} kcal`
+}
+
+export interface KaloriOzeti {
+  /** Girilen günlerin toplamı. Eksi = açık verilmiş, artı = fazla alınmış. */
+  net: number
+  /** Kaç güne kalori girilmiş. */
+  doluGun: number
+}
+
+/** Verilen günler için net kalori dengesi. */
+export function kaloriOzeti(
+  gunler: string[],
+  kayitlar: Map<string, DayEntry>,
+): KaloriOzeti {
+  const degerler = gunler.map((g) => metrikDegeri(kayitlar.get(g), 'kaloriDengesi'))
+  return { net: toplam(degerler), doluGun: doluGunSayisi(degerler) }
 }

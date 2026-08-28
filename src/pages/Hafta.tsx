@@ -7,14 +7,24 @@ import { MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
 import {
   bugun as bugunIso,
   gunEkle,
+  gunFarki,
   haftaBasi,
   haftaninGunleri,
+  kampGunleri,
   kampHaftasi,
   kisaTarih,
   pazarMi,
   uzunTarih,
 } from '../lib/date.ts'
-import { etkinCaba, haftaOzeti, toplam, yuzdeDegisim } from '../lib/stats.ts'
+import {
+  etkinCaba,
+  haftaOzeti,
+  kaloriBicimi,
+  kaloriOzeti,
+  sureBicimi,
+  toplam,
+  yuzdeDegisim,
+} from '../lib/stats.ts'
 import { useStore } from '../state/store.tsx'
 
 const METIN_ALANLARI = [
@@ -53,6 +63,14 @@ export function Hafta() {
   const sahneTop = haftaOzeti(hafta, gunler, 'sahneDk').toplam
   const kitapTop = haftaOzeti(hafta, gunler, 'kitapDk').toplam
   const gelirCaba = toplam(gunlerBu.map((g) => etkinCaba(gunler.get(g))))
+  const uykuOrt = haftaOzeti(hafta, gunler, 'uykuSaati').ortalama
+
+  // Kalori: bu haftanın neti ve kamp başından bugüne kümülatif net
+  const haftaKalori = kaloriOzeti(gunlerBu, gunler)
+  const kampBugüneKadar = kampGunleri(kampBaslangic, kampGunSayisi).filter(
+    (g) => gunFarki(g, bugunIso()) >= 0,
+  )
+  const toplamKalori = kaloriOzeti(kampBugüneKadar, gunler)
   const ozguvenDegisim = yuzdeDegisim(oncekiKayit?.ozguven ?? null, kayit.ozguven ?? null)
 
   const olcumKilitli = kayit.olcumKilitli === true && !kilitAcik
@@ -73,6 +91,7 @@ export function Hafta() {
     { etiket: 'Sahne', deger: `${sahneTop} dk` },
     { etiket: 'Kitap', deger: `${kitapTop} dk` },
     { etiket: 'Ek gelir etkin çaba', deger: `${Math.round(gelirCaba)} dk`, alt: 'dakika × verim' },
+    { etiket: 'Ortalama uyku', deger: sureBicimi(uykuOrt) },
   ]
 
   return (
@@ -112,6 +131,46 @@ export function Hafta() {
               {o.alt && <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>{o.alt}</div>}
             </div>
           ))}
+        </div>
+
+        {/* Kalori dengesi — haftalık net ve kamp başından beri toplam */}
+        <div className="alan">
+          <div className="etiket">Kalori dengesi</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>Bu hafta</div>
+              <div
+                className="rakam font-semibold text-lg"
+                style={{ color: haftaKalori.doluGun === 0 ? 'var(--c-ink-3)' : undefined }}
+              >
+                {haftaKalori.doluGun === 0 ? '—' : kaloriBicimi(haftaKalori.net)}
+              </div>
+              <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
+                {haftaKalori.doluGun === 0
+                  ? 'giriş yok'
+                  : haftaKalori.net < 0
+                    ? `${haftaKalori.doluGun} günde açık verdin`
+                    : haftaKalori.net > 0
+                      ? `${haftaKalori.doluGun} günde fazla aldın`
+                      : `${haftaKalori.doluGun} günde başabaş`}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>Kamp başından beri</div>
+              <div
+                className="rakam font-semibold text-lg"
+                style={{ color: toplamKalori.doluGun === 0 ? 'var(--c-ink-3)' : undefined }}
+              >
+                {toplamKalori.doluGun === 0 ? '—' : kaloriBicimi(toplamKalori.net)}
+              </div>
+              <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
+                {toplamKalori.doluGun === 0
+                  ? 'giriş yok'
+                  : `${toplamKalori.doluGun} günün toplamı`}
+              </div>
+            </div>
+          </div>
+          <p className="ipucu">Eksi = yaktığından az aldın (açık). Artı = fazla aldın.</p>
         </div>
       </Kart>
 

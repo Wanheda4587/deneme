@@ -22,6 +22,7 @@ import {
   metrikDegeri,
   metrikSerisi,
   seriHesapla,
+  sureBicimi,
   yuzdeDegisim,
 } from '../lib/stats.ts'
 import { useStore } from '../state/store.tsx'
@@ -133,7 +134,13 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
                 <div key={id}>
                   <div className="text-xs truncate" style={{ color: 'var(--c-ink-3)' }}>{def.kisa}</div>
                   <div className="rakam font-semibold text-lg">
-                    {v === null ? '—' : def.type === 'percent' ? `%${v}` : v}
+                    {v === null
+                      ? '—'
+                      : def.type === 'percent'
+                        ? `%${Number.isInteger(v) ? v : v.toFixed(1)}`
+                        : def.type === 'sure'
+                          ? sureBicimi(v)
+                          : v}
                   </div>
                 </div>
               )
@@ -243,11 +250,17 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
             if (!def) return null
             const seri = metrikSerisi(pencere, gunler, id)
             const degerler = seri.map((n) => n.deger).filter((v): v is number => v !== null)
-            const ozet = degerler.length === 0
-              ? '—'
-              : birikenMi(id)
-                ? `${Math.round(degerler.reduce((a, b) => a + b, 0))} ${def.birim ?? ''}`
-                : (degerler.reduce((a, b) => a + b, 0) / degerler.length).toFixed(1)
+            const ort = degerler.length === 0 ? null : degerler.reduce((a, b) => a + b, 0) / degerler.length
+            const ozet =
+              ort === null
+                ? '—'
+                : birikenMi(id)
+                  ? `${Math.round(degerler.reduce((a, b) => a + b, 0))} ${def.birim ?? ''}`
+                  : def.type === 'sure'
+                    ? sureBicimi(ort)
+                    : def.type === 'percent'
+                      ? `%${ort.toFixed(0)}`
+                      : ort.toFixed(1)
             return (
               <div key={id} className="min-w-0">
                 <div className="flex items-baseline justify-between gap-1 mb-1">

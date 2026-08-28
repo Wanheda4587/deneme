@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { DayEntry, Pillar } from './types.ts'
 
-export type MetricType = 'bool' | 'scale' | 'percent' | 'number'
+export type MetricType = 'bool' | 'scale' | 'percent' | 'number' | 'sure'
 export type Yon = 'yuksek' | 'dusuk' | 'yok'
 
 /** DayEntry'nin sayısal/boolean (yani grafiklenebilir) alanları. */
@@ -39,13 +39,13 @@ export const METRIKLER: MetricDef[] = [
   { id: 'kardiyoDk', label: 'Kardiyo', kisa: 'Kardiyo', pillar: 'vucut', type: 'number', min: 0, max: 300, step: 5, birim: 'dk', yon: 'yuksek' },
 
   // — Enerji & Keyif —
-  { id: 'uykuSaati', label: 'Uyku süresi', kisa: 'Uyku', pillar: 'enerji', type: 'number', min: 0, max: 14, step: 0.5, birim: 'sa', yon: 'yuksek' },
-  { id: 'uykuKalitesi', label: 'Uyku kalitesi', kisa: 'Uyku kalitesi', pillar: 'enerji', type: 'scale', min: 1, max: 10, step: 1, yon: 'yuksek' },
-  { id: 'enerji', label: 'Enerji', kisa: 'Enerji', pillar: 'enerji', type: 'scale', min: 1, max: 10, step: 1, yon: 'yuksek' },
-  { id: 'mutluluk', label: 'Mutluluk', kisa: 'Mutluluk', pillar: 'enerji', type: 'scale', min: 1, max: 10, step: 1, yon: 'yuksek' },
-  { id: 'beslenme', label: 'Beslenme', kisa: 'Beslenme', pillar: 'enerji', type: 'scale', min: 1, max: 10, step: 1, yon: 'yuksek' },
+  { id: 'uykuSaati', label: 'Uyku süresi', kisa: 'Uyku', pillar: 'enerji', type: 'sure', min: 0, max: 14, birim: 'sa', yon: 'yuksek' },
+  { id: 'uykuKalitesi', label: 'Uyku kalitesi', kisa: 'Uyku kalitesi', pillar: 'enerji', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek' },
+  { id: 'enerji', label: 'Enerji', kisa: 'Enerji', pillar: 'enerji', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek' },
+  { id: 'mutluluk', label: 'Mutluluk', kisa: 'Mutluluk', pillar: 'enerji', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek' },
+  { id: 'beslenme', label: 'Beslenme', kisa: 'Beslenme', pillar: 'enerji', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek' },
   { id: 'kaloriDengesi', label: 'Kalori dengesi', kisa: 'Kalori', pillar: 'enerji', type: 'number', min: -2000, max: 2000, step: 50, birim: 'kcal', yon: 'yok', ipucu: 'Eksi = açık verdim, artı = fazla aldım' },
-  { id: 'isSaati', label: 'İş yerinde çalışma', kisa: 'İş saati', pillar: 'enerji', type: 'number', min: 0, max: 16, step: 0.5, birim: 'sa', yon: 'yok' },
+  { id: 'isSaati', label: 'İş yerinde çalışma', kisa: 'İş saati', pillar: 'enerji', type: 'sure', min: 0, max: 16, birim: 'sa', yon: 'yok' },
 
   // — Disiplin —
   { id: 'disiplin', label: 'Disiplin puanı', kisa: 'Disiplin', pillar: 'disiplin', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek', ipucu: 'Düşük puan = bugün çok erteledim' },
