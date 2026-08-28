@@ -65,11 +65,14 @@ export function MetrikGrafigi({
   seri,
   tip,
   yukseklik = 180,
+  ters = false,
 }: {
   def: MetricDef
   seri: NoktaSerisi[]
   tip: 'bar' | 'cizgi'
   yukseklik?: number
+  /** true: bugün en solda, geriye doğru gider. false: kronolojik (eski → yeni). */
+  ters?: boolean
 }) {
   const renk = useTemaRenkleri()
   const sutunRenk = renk.sutun[def.pillar]
@@ -91,15 +94,15 @@ export function MetrikGrafigi({
 
   const eksenStili = { fill: renk.ink3, fontSize: 11 }
   const etiketAralik = veri.length > 40 ? 13 : veri.length > 20 ? 6 : 2
-  const xEtiketi = (d: string) => (veri.length > 14 ? kisaTarih(d) : gunAdiKisa(d))
+  const xEtiketi = (d: string) => (veri.length > 8 ? kisaTarih(d) : gunAdiKisa(d))
 
   return (
     <div className="px-2 pb-2">
       <ResponsiveContainer width="100%" height={yukseklik}>
         {tip === 'bar' ? (
-          <BarChart data={veri} margin={{ top: 8, right: 8, bottom: 0, left: -12 }} barCategoryGap="18%">
+          <BarChart data={veri} margin={{ top: 8, right: 22, bottom: 0, left: -12 }} barCategoryGap="18%">
             <CartesianGrid stroke={renk.izgara} strokeDasharray="0" vertical={false} />
-            <XAxis dataKey="date" tickFormatter={xEtiketi} tick={eksenStili} interval={etiketAralik} axisLine={{ stroke: renk.izgara }} tickLine={false} />
+            <XAxis dataKey="date" reversed={ters} tickFormatter={xEtiketi} tick={eksenStili} interval={etiketAralik} axisLine={{ stroke: renk.izgara }} tickLine={false} />
             <YAxis
               tick={eksenStili} axisLine={false} tickLine={false}
               width={def.type === 'bool' ? 54 : 44}
@@ -112,9 +115,9 @@ export function MetrikGrafigi({
             <Bar dataKey="ham" fill={sutunRenk} radius={[4, 4, 0, 0]} isAnimationActive={false} />
           </BarChart>
         ) : (
-          <LineChart data={veri} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+          <LineChart data={veri} margin={{ top: 8, right: 22, bottom: 0, left: -12 }}>
             <CartesianGrid stroke={renk.izgara} strokeDasharray="0" vertical={false} />
-            <XAxis dataKey="date" tickFormatter={xEtiketi} tick={eksenStili} interval={etiketAralik} axisLine={{ stroke: renk.izgara }} tickLine={false} />
+            <XAxis dataKey="date" reversed={ters} tickFormatter={xEtiketi} tick={eksenStili} interval={etiketAralik} axisLine={{ stroke: renk.izgara }} tickLine={false} />
             <YAxis tick={eksenStili} axisLine={false} tickLine={false} width={44} domain={def.type === 'scale' ? [0, 10] : def.type === 'percent' ? [0, 100] : ['auto', 'auto']} />
             <Tooltip cursor={{ stroke: renk.ink3, strokeWidth: 1 }} content={<Balon def={def} ortalamaGoster />} />
             {/* Ham günlük değer: ince, noktalı — tek tek günler görünsün */}

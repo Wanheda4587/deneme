@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import type { MetricDef } from '../../lib/metrics.ts'
 import { Alan, TemizleDugmesi } from './Kart.tsx'
 
@@ -30,11 +30,11 @@ export function Olcek({
   )
 }
 
-// ── Yüzde: kaydırıcı + büyük okunur değer ────────────────────────────────
+// ── Yüzde: kaydırıcı + elle yazılabilen kutu (küsürat serbest) ───────────
 export function Yuzde({
   deger,
   onChange,
-  adim = 5,
+  adim = 0.5,
   etiketi,
 }: {
   deger: number | undefined
@@ -42,7 +42,18 @@ export function Yuzde({
   adim?: number
   etiketi: string
 }) {
-  const secili = deger !== undefined
+  const id = useId()
+  // Yazarken "72." gibi yarım girdiler silinmesin diye ham metin ayrıca tutulur.
+  const [ham, setHam] = useState<string | null>(null)
+  const gosterilen = ham ?? (deger === undefined ? '' : String(deger))
+
+  const yaz = (metin: string) => {
+    setHam(metin)
+    if (metin.trim() === '') return onChange(undefined)
+    const n = Number(metin.replace(',', '.'))
+    if (Number.isFinite(n)) onChange(Math.min(Math.max(n, 0), 100))
+  }
+
   return (
     <div className="flex items-center gap-3">
       <input
@@ -52,15 +63,33 @@ export function Yuzde({
         max={100}
         step={adim}
         value={deger ?? 0}
-        aria-label={etiketi}
-        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={`${etiketi} kaydırıcı`}
+        onChange={(e) => {
+          setHam(null)
+          onChange(Number(e.target.value))
+        }}
       />
-      <span
-        className="rakam text-lg font-semibold tabular-nums w-16 text-right"
-        style={{ color: secili ? 'var(--sutun-renk)' : 'var(--c-ink-3)' }}
-      >
-        {secili ? `%${deger}` : '—'}
-      </span>
+      <div className="relative shrink-0" style={{ width: '5.5rem' }}>
+        <span
+          aria-hidden="true"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+          style={{ color: deger === undefined ? 'var(--c-ink-3)' : 'var(--sutun-renk)' }}
+        >
+          %
+        </span>
+        <input
+          id={id}
+          type="text"
+          inputMode="decimal"
+          className="girdi rakam font-semibold text-right"
+          style={{ paddingLeft: '1.5rem' }}
+          value={gosterilen}
+          placeholder="—"
+          aria-label={etiketi}
+          onChange={(e) => yaz(e.target.value)}
+          onBlur={() => setHam(null)}
+        />
+      </div>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { demoUret } from '../lib/demo.ts'
 import { useStore } from '../state/store.tsx'
 
 // Demo verisinin gün sayısı — bugün kampın kaçıncı günü sayılacağını da belirler.
-const DEMO_GUN = 42
+const DEMO_GUN = 14
 
 export function Ayarlar() {
   const { ayarlar, gunler, haftalar, ayarGuncelle, disaAktar, iceAktar, hepsiniSil, topluYukle } =

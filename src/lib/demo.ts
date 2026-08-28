@@ -31,35 +31,64 @@ export function demoUret(
   const gunler: DayEntry[] = []
   const baslangic = gunEkle(bitisIso, -(gunSayisi - 1))
 
+  const ANTRENMAN_NOTLARI = [
+    'Göğüs–triceps. Bench 3x8, son set zorladı.',
+    'Sırt–biceps. Barfikste 2 tekrar arttırdım.',
+    'Bacak günü. Squat ağırlığı sabit, form düzeldi.',
+    'Omuz. Yan raise\'lerde forma odaklandım.',
+    'Push günü. Enerjim yüksekti, hacim arttı.',
+  ]
+  const GITMEME_SEBEPLERI = [
+    'İş çıkışı geç oldu, salon kapanmıştı.',
+    'Uykusuzdum, dinlenme günü yaptım.',
+    'Bel ağrısı vardı, zorlamadım.',
+  ]
+  const GELIR_NOTLARI = [
+    'Freelance teklifi için portföy sayfası hazırladım.',
+    'YouTube videosu için senaryo yazdım.',
+    'Eski müşteriye takip maili attım, görüşme ayarlandı.',
+    'Fiyatlandırma araştırması yaptım.',
+    'Video kurgusu — yarısını bitirdim.',
+  ]
+  const GUN_NOTLARI = [
+    'Sabah ağır başladı ama akşama toparladım.',
+    'Bugün ertelemeden yaptım, kendimi iyi hissettim.',
+    'İş yoğundu, akşam enerji kalmadı.',
+    'Sahne çalışması iyi geçti, akıcıydım.',
+    'Beslenme kaydı, tatlıya yenildim.',
+    'İyi bir gündü — her şeyi planladığım gibi yaptım.',
+    'Sosyal ortamda daha rahattım, konuşmayı ben başlattım.',
+  ]
+  const sec = <T,>(dizi: T[]) => dizi[Math.floor(rnd() * dizi.length)]
+
   for (let i = 0; i < gunSayisi; i++) {
     const date = gunEkle(baslangic, i)
     const t = i / Math.max(gunSayisi - 1, 1) // 0 → 1 arası ilerleme
-    if (rnd() < 0.08) continue // arada atlanan günler gerçekçi olsun
-
     const gurultu = (o: number) => (rnd() - 0.5) * o
-    const antrenmanaGitti = rnd() < 0.45 + t * 0.3
+    const antrenmanaGitti = rnd() < 0.5 + t * 0.3
 
     gunler.push({
       date,
       antrenman: antrenmanaGitti,
       antrenmanVerimi: antrenmanaGitti
-        ? Math.round(kenetle(55 + t * 25 + gurultu(30), 20, 100) / 5) * 5
+        ? Math.round(kenetle(55 + t * 25 + gurultu(25), 25, 100) * 2) / 2
         : undefined,
-      antrenmanNotu: antrenmanaGitti ? '' : rnd() < 0.5 ? 'İş çıkışı geç oldu.' : '',
-      kardiyoDk: rnd() < 0.3 + t * 0.4 ? Math.round(kenetle(10 + t * 25 + gurultu(25), 0, 90) / 5) * 5 : 0,
-      uykuSaati: Math.round(kenetle(6.4 + t * 1.1 + gurultu(2), 4, 10) * 2) / 2,
-      uykuKalitesi: Math.round(kenetle(5 + t * 2.5 + gurultu(3), 1, 10)),
-      enerji: Math.round(kenetle(4.6 + t * 3 + gurultu(3), 1, 10)),
-      mutluluk: Math.round(kenetle(5 + t * 2.4 + gurultu(3), 1, 10)),
-      beslenme: Math.round(kenetle(4.8 + t * 2.8 + gurultu(3.5), 1, 10)),
-      kaloriDengesi: Math.round(kenetle(-250 - t * 150 + gurultu(600), -1200, 800) / 50) * 50,
-      isSaati: Math.round(kenetle(8 + gurultu(3), 0, 12) * 2) / 2,
-      disiplin: Math.round(kenetle(42 + t * 38 + gurultu(35), 0, 100) / 5) * 5,
-      sahneDk: rnd() < 0.35 + t * 0.35 ? Math.round(kenetle(15 + t * 45 + gurultu(40), 5, 150) / 5) * 5 : 0,
-      kitapDk: rnd() < 0.5 + t * 0.3 ? Math.round(kenetle(15 + t * 35 + gurultu(35), 0, 150) / 5) * 5 : 0,
-      gelirDk: rnd() < 0.4 + t * 0.35 ? Math.round(kenetle(30 + t * 70 + gurultu(70), 10, 300) / 5) * 5 : 0,
-      gelirVerimi: Math.round(kenetle(45 + t * 30 + gurultu(35), 10, 100) / 5) * 5,
-      gunNotu: '',
+      antrenmanNotu: antrenmanaGitti ? sec(ANTRENMAN_NOTLARI) : sec(GITMEME_SEBEPLERI),
+      kardiyoDk: Math.round(kenetle(15 + t * 25 + gurultu(20), 0, 75) / 5) * 5,
+      uykuSaati: Math.round(kenetle(6.4 + t * 1.1 + gurultu(1.6), 4.5, 9.5) * 2) / 2,
+      uykuKalitesi: Math.round(kenetle(5 + t * 2.5 + gurultu(2.5), 2, 10)),
+      enerji: Math.round(kenetle(4.6 + t * 3 + gurultu(2.5), 2, 10)),
+      mutluluk: Math.round(kenetle(5 + t * 2.4 + gurultu(2.5), 2, 10)),
+      beslenme: Math.round(kenetle(4.8 + t * 2.8 + gurultu(3), 2, 10)),
+      kaloriDengesi: Math.round(kenetle(-250 - t * 150 + gurultu(500), -1100, 500) / 50) * 50,
+      isSaati: Math.round(kenetle(8 + gurultu(3), 4, 12) * 2) / 2,
+      disiplin: Math.round(kenetle(42 + t * 38 + gurultu(28), 10, 100) * 2) / 2,
+      sahneDk: Math.round(kenetle(20 + t * 45 + gurultu(30), 5, 140) / 5) * 5,
+      kitapDk: Math.round(kenetle(20 + t * 35 + gurultu(28), 5, 130) / 5) * 5,
+      gelirDk: Math.round(kenetle(35 + t * 70 + gurultu(55), 10, 260) / 5) * 5,
+      gelirVerimi: Math.round(kenetle(45 + t * 30 + gurultu(28), 15, 100) * 2) / 2,
+      gelirNotu: sec(GELIR_NOTLARI),
+      gunNotu: sec(GUN_NOTLARI),
       updatedAt: new Date().toISOString(),
     })
   }
@@ -77,7 +106,10 @@ export function demoUret(
     haftalar.push({
       weekStart: hb,
       ozguven: Math.round(kenetle(4 + t * 3.5 + (rnd() - 0.5) * 1.5, 1, 10)),
-      ozguvenNotu: t > 0.6 ? 'Sahnede daha rahattım, tanımadığım biriyle sohbet başlattım.' : 'Hâlâ tutukluk var.',
+      ozguvenNotu:
+        t > 0.6
+          ? 'Sahnede belirgin şekilde daha rahattım; tanımadığım biriyle ben sohbet başlattım.'
+          : 'Kalabalıkta hâlâ tutukluk var, konuşmayı başlatmakta zorlanıyorum.',
       olcumler: {
         bel: Math.round((94 - t * 4.2 + (rnd() - 0.5) * 0.6) * 2) / 2,
         kol: Math.round((36 + t * 1.8 + (rnd() - 0.5) * 0.4) * 2) / 2,
@@ -85,10 +117,18 @@ export function demoUret(
       },
       olcumKilitli: true,
       olcumTarihi: gunEkle(hb, 6),
-      ozguvenIcinNeYaptim: '',
-      haftaninKazanimi: '',
-      enCokNeErteledim: '',
-      gelecekHaftaOdagi: '',
+      ozguvenIcinNeYaptim:
+        t > 0.5
+          ? 'Sahne programına düzenli çalıştım ve iki kez yeni biriyle konuşma başlattım.'
+          : 'Aynaya karşı prova yaptım ama sosyal ortamda denemedim.',
+      haftaninKazanimi:
+        t > 0.5
+          ? 'Antrenmanı hiç aksatmadım ve disiplin puanım ilk kez %80 üstüne çıktı.'
+          : 'Uyku düzenim oturmaya başladı.',
+      enCokNeErteledim:
+        t > 0.5 ? 'Ek gelir için teklif hazırlamayı iki gün öteledim.' : 'Sabah antrenmanlarını sürekli akşama attım.',
+      gelecekHaftaOdagi:
+        t > 0.5 ? 'Kitap süresini günde 45 dakikaya çıkarmak.' : 'Her gün en az bir kez sohbet başlatmak.',
       updatedAt: new Date().toISOString(),
     })
   })

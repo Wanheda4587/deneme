@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Kart } from '../components/ui/Kart.tsx'
 import { MetrikGrafigi } from '../components/charts/MetrikGrafigi.tsx'
 import { METRIKLER, SUTUNLAR } from '../lib/metrics.ts'
+import type { MetrikId } from '../lib/metrics.ts'
 import type { Pillar } from '../lib/types.ts'
 import { bugun as bugunIso, gunEkle, gunFarki, kampGunleri } from '../lib/date.ts'
 import { birikenMi, degisimYonu, metrikSerisi, ortalama, toplam } from '../lib/stats.ts'
@@ -11,8 +12,22 @@ type Aralik = 14 | 30 | 0 // 0 = tüm kamp
 
 export function Trendler() {
   const { gunler, ayarlar } = useStore()
-  const [aralik, setAralik] = useState<Aralik>(30)
+  const [aralik, setAralik] = useState<Aralik>(14)
   const [sutunFiltre, setSutunFiltre] = useState<Pillar | 'hepsi'>('hepsi')
+  const [tamEkran, setTamEkran] = useState<MetrikId | null>(null)
+
+  // Tam ekran açıkken Esc ile kapansın, arkadaki sayfa kaymasın
+  useEffect(() => {
+    if (!tamEkran) return
+    const kapat = (e: KeyboardEvent) => e.key === 'Escape' && setTamEkran(null)
+    window.addEventListener('keydown', kapat)
+    const eskiTasma = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', kapat)
+      document.body.style.overflow = eskiTasma
+    }
+  }, [tamEkran])
 
   const { kampBaslangic, kampGunSayisi } = ayarlar
   const gizli = new Set(ayarlar.gizliMetrikler)
@@ -151,7 +166,10 @@ export function Trendler() {
             ? `${degerler.filter((d) => d === 1).length} gün`
             : (() => {
                 const o = ortalama(degerler)
-                return o === null ? '—' : `ort. ${o.toFixed(1)}${def.birim ? ` ${def.birim}` : ''}`
+                if (o === null) return '—'
+                // Yüzde işareti Türkçede başa gelir
+                if (def.type === 'percent') return `ort. %${o.toFixed(1)}`
+                return `ort. ${o.toFixed(1)}${def.birim ? ` ${def.birim}` : ''}`
               })()
 
         return (
@@ -160,12 +178,25 @@ export function Trendler() {
             baslik={def.label}
             ikon={SUTUNLAR.find((s) => s.id === def.pillar)?.ikon}
             pillar={def.pillar}
-            sag={<span className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>{ozet}</span>}
+            sag={
+              <span className="flex items-center gap-2">
+                <span className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>{ozet}</span>
+                <button
+                  type="button"
+                  className="dugme px-2 py-1 text-xs"
+                  aria-label={`${def.label} grafiğini tam ekran aç`}
+                  onClick={() => setTamEkran(def.id)}
+                >
+                  ⛶
+                </button>
+              </span>
+            }
           >
             <MetrikGrafigi
               def={def}
               seri={seri}
               tip={biriken || def.type === 'bool' ? 'bar' : 'cizgi'}
+              ters
             />
           </Kart>
         )
@@ -176,6 +207,93 @@ export function Trendler() {
           Bu sütunda görünür metrik yok.
         </p>
       )}
+
+      {tamEkran && (
+        <TamEkranGrafik
+          metrikId={tamEkran}
+          gunler={tumGunler.filter((g) => g <= bugunStr)}
+          kayitlar={gunler}
+          onKapat={() => setTamEkran(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Tek metriğin tüm kamp boyunca görünümü. Buradaki eksen kronolojiktir:
+ * en solda kamp başlangıcı, sağa doğru bugüne gelir.
+ */
+function TamEkranGrafik({
+  metrikId,
+  gunler,
+  kayitlar,
+  onKapat,
+}: {
+  metrikId: MetrikId
+  gunler: string[]
+  kayitlar: Map<string, import('../lib/types.ts').DayEntry>
+  onKapat: () => void
+}) {
+  const def = METRIKLER.find((m) => m.id === metrikId)
+  if (!def) return null
+  const seri = metrikSerisi(gunler, kayitlar, metrikId)
+  const degerler = seri.map((n) => n.deger).filter((v): v is number => v !== null)
+  const biriken = birikenMi(metrikId)
+  const ozet =
+    degerler.length === 0
+      ? '—'
+      : biriken
+        ? `toplam ${Math.round(toplam(degerler))}${def.birim ? ` ${def.birim}` : ''}`
+        : def.type === 'bool'
+          ? `${degerler.filter((d) => d === 1).length} gün`
+          : def.type === 'percent'
+            ? `ort. %${(ortalama(degerler) ?? 0).toFixed(1)}`
+            : `ort. ${(ortalama(degerler) ?? 0).toFixed(1)}${def.birim ? ` ${def.birim}` : ''}`
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${def.label} — tüm kamp`}
+      style={{ background: 'var(--c-bg)' }}
+    >
+      <header
+        className="flex items-center gap-2 px-4 py-3 border-b shrink-0"
+        style={{ borderColor: 'var(--c-cizgi)' }}
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block shrink-0"
+          style={{ width: 10, height: 10, borderRadius: 2, background: `var(--p-${def.pillar})` }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold truncate">{def.label}</div>
+          <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
+            Kamp başlangıcından bugüne · {gunler.length} gün · {ozet}
+          </div>
+        </div>
+        <button type="button" className="dugme" aria-label="Tam ekranı kapat" onClick={onKapat}>
+          ✕
+        </button>
+      </header>
+
+      <div className="flex-1 min-h-0 p-2 flex flex-col justify-center">
+        <MetrikGrafigi
+          def={def}
+          seri={seri}
+          tip={biriken || def.type === 'bool' ? 'bar' : 'cizgi'}
+          yukseklik={Math.min(520, Math.max(260, window.innerHeight - 160))}
+        />
+      </div>
+
+      <p
+        className="text-xs text-center px-4 pb-4 shrink-0"
+        style={{ color: 'var(--c-ink-3)' }}
+      >
+        Soldan sağa: kamp başlangıcı → bugün. Kapatmak için ✕ veya Esc.
+      </p>
     </div>
   )
 }

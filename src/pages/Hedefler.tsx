@@ -22,6 +22,7 @@ export function Hedefler() {
   const renk = useTemaRenkleri()
   const [duzenlenen, setDuzenlenen] = useState<string | null>(null)
   const [silinecek, setSilinecek] = useState<string | null>(null)
+  const [ekleAcik, setEkleAcik] = useState(false)
 
   const { kampBaslangic, kampGunSayisi, olcumHedefleri } = ayarlar
   const gecenGun = Math.min(Math.max(gunFarki(kampBaslangic, bugunIso()) + 1, 0), kampGunSayisi)
@@ -38,15 +39,11 @@ export function Hedefler() {
     setDuzenlenen(null)
   }
 
-  const hedefEkle = () => {
-    const id = yeniId('olcum')
+  const hedefEkle = (taslak: { label: string; birim: string; baslangic: number; hedef: number | null }) => {
     ayarGuncelle({
-      olcumHedefleri: [
-        ...olcumHedefleri,
-        { id, label: 'Yeni ölçüm', baslangic: 0, hedef: null, birim: 'cm' },
-      ],
+      olcumHedefleri: [...olcumHedefleri, { id: yeniId('olcum'), ...taslak }],
     })
-    setDuzenlenen(id)
+    setEkleAcik(false)
   }
 
   return (
@@ -81,9 +78,13 @@ export function Hedefler() {
         />
       ))}
 
-      <button type="button" className="dugme dugme-vurgu" onClick={hedefEkle}>
-        + Yeni ölçüm hedefi ekle
-      </button>
+      {ekleAcik ? (
+        <YeniHedefFormu onEkle={hedefEkle} onVazgec={() => setEkleAcik(false)} />
+      ) : (
+        <button type="button" className="dugme dugme-vurgu" onClick={() => setEkleAcik(true)}>
+          + Yeni ölçüm hedefi ekle
+        </button>
+      )}
 
       {olcumHedefleri.length === 0 && (
         <p className="text-sm text-center px-4" style={{ color: 'var(--c-ink-3)' }}>
@@ -91,6 +92,102 @@ export function Hedefler() {
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * Yeni ölçüm hedefi formu. Hedef ancak "Ekle" denince yaratılır — böylece
+ * haftalık ölçümler listesinde adsız yer tutucu oluşmaz.
+ */
+function YeniHedefFormu({
+  onEkle,
+  onVazgec,
+}: {
+  onEkle: (t: { label: string; birim: string; baslangic: number; hedef: number | null }) => void
+  onVazgec: () => void
+}) {
+  const [label, setLabel] = useState('')
+  const [birim, setBirim] = useState('cm')
+  const [baslangic, setBaslangic] = useState<number | undefined>(undefined)
+  const [hedef, setHedef] = useState<number | undefined>(undefined)
+
+  const gecerli = label.trim().length > 0 && baslangic !== undefined
+
+  return (
+    <Kart baslik="Yeni ölçüm hedefi" ikon="➕" pillar="vucut">
+      <Alan etiket="Ne ölçüyorsun?" ipucu="Örneğin: Göğüs, Kalça, Uyluk">
+        <input
+          className="girdi"
+          value={label}
+          placeholder="Ölçümün adı"
+          aria-label="Ölçümün adı"
+          autoFocus
+          onChange={(e) => setLabel(e.target.value)}
+        />
+      </Alan>
+      <Alan etiket="Birim">
+        <div className="flex gap-2">
+          {['cm', 'kg', '%'].map((b) => (
+            <button
+              key={b}
+              type="button"
+              className="dugme flex-1"
+              aria-pressed={birim === b}
+              style={birim === b ? { borderColor: 'var(--c-ink-3)', color: 'var(--c-ink)' } : undefined}
+              onClick={() => setBirim(b)}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+      </Alan>
+      <Alan etiket="Şu anki değerin">
+        <Sayi
+          deger={baslangic}
+          onChange={setBaslangic}
+          min={0}
+          max={500}
+          adim={birim === 'kg' ? 0.1 : 0.5}
+          birim={birim}
+          etiketi="Şu anki değer"
+        />
+      </Alan>
+      <Alan
+        etiket="Hedef değer"
+        ipucu="Boş bırakırsan hedef konmaz — değer yalnızca izlenir ve grafikte görünür."
+      >
+        <Sayi
+          deger={hedef}
+          onChange={setHedef}
+          min={0}
+          max={500}
+          adim={birim === 'kg' ? 0.1 : 0.5}
+          birim={birim}
+          etiketi="Hedef değer"
+        />
+      </Alan>
+      <div className="alan flex gap-2">
+        <button
+          type="button"
+          className="dugme dugme-vurgu flex-1"
+          disabled={!gecerli}
+          onClick={() =>
+            onEkle({
+              label: label.trim(),
+              birim,
+              baslangic: baslangic ?? 0,
+              hedef: hedef ?? null,
+            })
+          }
+        >
+          Ekle
+        </button>
+        <button type="button" className="dugme" onClick={onVazgec}>Vazgeç</button>
+      </div>
+      {!gecerli && (
+        <p className="ipucu px-4 pb-3">Ad ve şu anki değer gerekli.</p>
+      )}
+    </Kart>
   )
 }
 

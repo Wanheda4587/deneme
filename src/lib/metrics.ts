@@ -35,7 +35,7 @@ export interface MetricDef {
 export const METRIKLER: MetricDef[] = [
   // — Vücut —
   { id: 'antrenman', label: 'Antrenmana gittim mi?', kisa: 'Antrenman', pillar: 'vucut', type: 'bool', yon: 'yuksek' },
-  { id: 'antrenmanVerimi', label: 'Antrenman verimi', kisa: 'Antr. verimi', pillar: 'vucut', type: 'percent', min: 0, max: 100, step: 5, birim: '%', yon: 'yuksek', antrenmanaBagli: true },
+  { id: 'antrenmanVerimi', label: 'Antrenman verimi', kisa: 'Antr. verimi', pillar: 'vucut', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek', antrenmanaBagli: true },
   { id: 'kardiyoDk', label: 'Kardiyo', kisa: 'Kardiyo', pillar: 'vucut', type: 'number', min: 0, max: 300, step: 5, birim: 'dk', yon: 'yuksek' },
 
   // — Enerji & Keyif —
@@ -48,7 +48,7 @@ export const METRIKLER: MetricDef[] = [
   { id: 'isSaati', label: 'İş yerinde çalışma', kisa: 'İş saati', pillar: 'enerji', type: 'number', min: 0, max: 16, step: 0.5, birim: 'sa', yon: 'yok' },
 
   // — Disiplin —
-  { id: 'disiplin', label: 'Disiplin puanı', kisa: 'Disiplin', pillar: 'disiplin', type: 'percent', min: 0, max: 100, step: 5, birim: '%', yon: 'yuksek', ipucu: 'Düşük puan = bugün çok erteledim' },
+  { id: 'disiplin', label: 'Disiplin puanı', kisa: 'Disiplin', pillar: 'disiplin', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek', ipucu: 'Düşük puan = bugün çok erteledim' },
 
   // — Özgüven & İletişim —
   { id: 'sahneDk', label: 'Sahne programı çalışması', kisa: 'Sahne', pillar: 'ozguven', type: 'number', min: 0, max: 600, step: 5, birim: 'dk', yon: 'yuksek' },
@@ -56,7 +56,7 @@ export const METRIKLER: MetricDef[] = [
 
   // — Ek Gelir —
   { id: 'gelirDk', label: 'Ayırdığım süre', kisa: 'Gelir süresi', pillar: 'gelir', type: 'number', min: 0, max: 900, step: 5, birim: 'dk', yon: 'yuksek' },
-  { id: 'gelirVerimi', label: 'Verim', kisa: 'Gelir verimi', pillar: 'gelir', type: 'percent', min: 0, max: 100, step: 5, birim: '%', yon: 'yuksek' },
+  { id: 'gelirVerimi', label: 'Verim', kisa: 'Gelir verimi', pillar: 'gelir', type: 'percent', min: 0, max: 100, step: 0.5, birim: '%', yon: 'yuksek' },
 ]
 
 export const METRIK_HARITASI: Record<string, MetricDef> = Object.fromEntries(
