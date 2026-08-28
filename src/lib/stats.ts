@@ -1,0 +1,209 @@
+// İstatistik yardımcıları. Hiçbiri kullanıcıdan girdi almaz — hepsi türetilir.
+import type { DayEntry, WeekEntry } from './types.ts'
+import type { MetrikId, MetricDef } from './metrics.ts'
+import { metrik } from './metrics.ts'
+import { haftaBasi, haftaninGunleri } from './date.ts'
+
+export interface NoktaSerisi {
+  date: string
+  deger: number | null
+}
+
+/** Bir metriğin ham günlük değerini sayıya çevirir (boolean → 1/0). */
+export function metrikDegeri(gun: DayEntry | undefined, id: MetrikId): number | null {
+  if (!gun) return null
+  const ham = gun[id]
+  if (ham === undefined || ham === null) return null
+  if (typeof ham === 'boolean') return ham ? 1 : 0
+  if (typeof ham === 'number') return Number.isFinite(ham) ? ham : null
+  return null
+}
+
+/** Verilen gün listesi için metriğin zaman serisi (boş günler null). */
+export function metrikSerisi(
+  gunler: string[],
+  kayitlar: Map<string, DayEntry>,
+  id: MetrikId,
+): NoktaSerisi[] {
+  return gunler.map((date) => ({ date, deger: metrikDegeri(kayitlar.get(date), id) }))
+}
+
+export function ortalama(degerler: (number | null | undefined)[]): number | null {
+  const v = degerler.filter((d): d is number => typeof d === 'number' && Number.isFinite(d))
+  if (v.length === 0) return null
+  return v.reduce((a, b) => a + b, 0) / v.length
+}
+
+export function toplam(degerler: (number | null | undefined)[]): number {
+  return degerler.reduce<number>(
+    (a, b) => a + (typeof b === 'number' && Number.isFinite(b) ? b : 0),
+    0,
+  )
+}
+
+export function doluGunSayisi(degerler: (number | null | undefined)[]): number {
+  return degerler.filter((d) => typeof d === 'number' && Number.isFinite(d)).length
+}
+
+/**
+ * Sondan geriye bakan hareketli ortalama. Boş günler ortalamayı bozmaz —
+ * pencere içindeki dolu günlerin ortalaması alınır, hiç dolu gün yoksa null.
+ */
+export function hareketliOrtalama(seri: NoktaSerisi[], pencere = 7): NoktaSerisi[] {
+  return seri.map((nokta, i) => {
+    const bas = Math.max(0, i - pencere + 1)
+    const dilim = seri.slice(bas, i + 1).map((n) => n.deger)
+    return { date: nokta.date, deger: ortalama(dilim) }
+  })
+}
+
+/** Yüzde değişim. Önceki değer 0 veya yoksa null (bölme anlamsız olurdu). */
+export function yuzdeDegisim(onceki: number | null, simdi: number | null): number | null {
+  if (onceki === null || simdi === null) return null
+  if (onceki === 0) return null
+  return ((simdi - onceki) / Math.abs(onceki)) * 100
+}
+
+/** Değişimin "iyi mi kötü mü" olduğu — metriğin yön tercihine göre. */
+export function degisimYonu(
+  def: MetricDef,
+  fark: number | null,
+): 'iyi' | 'kotu' | 'notr' {
+  if (fark === null || Math.abs(fark) < 1e-9 || def.yon === 'yok') return 'notr'
+  if (def.yon === 'yuksek') return fark > 0 ? 'iyi' : 'kotu'
+  return fark < 0 ? 'iyi' : 'kotu'
+}
+
+export interface SeriBilgisi {
+  guncel: number
+  enUzun: number
+}
+
+/** Ardışık gün serisi. `kosul` sağlanan günler sayılır; bugüne kadar bakılır. */
+export function seriHesapla(
+  gunler: string[],
+  kayitlar: Map<string, DayEntry>,
+  kosul: (g: DayEntry | undefined) => boolean,
+): SeriBilgisi {
+  let enUzun = 0
+  let sayac = 0
+  for (const g of gunler) {
+    if (kosul(kayitlar.get(g))) {
+      sayac++
+      if (sayac > enUzun) enUzun = sayac
+    } else {
+      sayac = 0
+    }
+  }
+  return { guncel: sayac, enUzun }
+}
+
+/** Bir haftanın (Pazartesi başlangıçlı) metrik özeti. */
+export interface HaftaOzeti {
+  haftaBasi: string
+  ortalama: number | null
+  toplam: number
+  doluGun: number
+}
+
+export function haftaOzeti(
+  haftaBasiIso: string,
+  kayitlar: Map<string, DayEntry>,
+  id: MetrikId,
+): HaftaOzeti {
+  const degerler = haftaninGunleri(haftaBasiIso).map((g) => metrikDegeri(kayitlar.get(g), id))
+  return {
+    haftaBasi: haftaBasiIso,
+    ortalama: ortalama(degerler),
+    toplam: toplam(degerler),
+    doluGun: doluGunSayisi(degerler),
+  }
+}
+
+/** Metriğin doğal özet biçimi: süre/sayfa gibi birikenler toplanır, puanlar ortalanır. */
+export function birikenMi(id: MetrikId): boolean {
+  return id === 'sahneDk' || id === 'kitapSayfa' || id === 'gelirDk'
+}
+
+export function haftaDegeri(ozet: HaftaOzeti, id: MetrikId): number | null {
+  if (birikenMi(id)) return ozet.doluGun > 0 ? ozet.toplam : null
+  return ozet.ortalama
+}
+
+/** Etkin çaba = dakika × verim% — hem hacmi hem kaliteyi tek sayıda toplar. */
+export function etkinCaba(gun: DayEntry | undefined): number | null {
+  if (!gun) return null
+  const dk = gun.gelirDk
+  const verim = gun.gelirVerimi
+  if (typeof dk !== 'number') return null
+  if (typeof verim !== 'number') return dk
+  return (dk * verim) / 100
+}
+
+// ── Ölçüm hedefleri (bel / kol) ────────────────────────────────────────────
+
+export interface HedefDurumu {
+  guncel: number | null
+  baslangic: number
+  hedef: number
+  /** Kat edilen yolun yüzdesi (0-100, aşarsa 100'ü geçebilir). */
+  ilerleme: number | null
+  /** Bugün itibarıyla olunması gereken değer. */
+  beklenen: number
+  /** Beklenene göre fark — hedef yönünde pozitifse öndesin. */
+  fark: number | null
+  onde: boolean | null
+  kalanGun: number
+}
+
+export function hedefDurumu(
+  baslangic: number,
+  hedef: number,
+  guncel: number | null,
+  gecenGun: number,
+  toplamGun: number,
+): HedefDurumu {
+  const oran = Math.min(Math.max(gecenGun / toplamGun, 0), 1)
+  const beklenen = baslangic + (hedef - baslangic) * oran
+  const menzil = hedef - baslangic
+  const ilerleme = guncel === null || menzil === 0 ? null : ((guncel - baslangic) / menzil) * 100
+  // Hedef yönünde ne kadar öndeyiz: menzil işaretine göre normalize edilir.
+  const fark = guncel === null ? null : (guncel - beklenen) * Math.sign(menzil)
+  return {
+    guncel,
+    baslangic,
+    hedef,
+    ilerleme,
+    beklenen,
+    fark,
+    onde: fark === null ? null : fark >= 0,
+    kalanGun: Math.max(toplamGun - gecenGun, 0),
+  }
+}
+
+/** Haftalık kayıtlardan bir ölçümün en son girilen değeri. */
+export function sonOlcum(
+  haftalar: WeekEntry[],
+  alan: 'bel' | 'kol' | 'kilo',
+): number | null {
+  const sirali = [...haftalar].sort((a, b) => b.weekStart.localeCompare(a.weekStart))
+  for (const h of sirali) {
+    const v = h[alan]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+  }
+  return null
+}
+
+/** Bir metriğin değerini birimiyle birlikte okunur hale getirir. */
+export function bicimle(id: MetrikId, deger: number | null, ondalik = 1): string {
+  if (deger === null) return '—'
+  const def = metrik(id)
+  if (def.type === 'bool') return deger >= 0.5 ? 'Evet' : 'Hayır'
+  const yuvarlak = Number.isInteger(deger) ? String(deger) : deger.toFixed(ondalik)
+  return def.birim ? `${yuvarlak} ${def.birim}` : yuvarlak
+}
+
+/** Verilen günün haftasının Pazartesi'si — kısayol. */
+export function gununHaftasi(isoStr: string): string {
+  return haftaBasi(isoStr)
+}

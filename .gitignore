@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.*
+# Kişisel veri asla repoya girmemeli
+*-yedek.json
+*-backup.json
+veri/
