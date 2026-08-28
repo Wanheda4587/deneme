@@ -22,6 +22,18 @@ const TUR_ACIKLAMA: Record<MikroTur, string> = {
   gun: 'O metriği sıfırdan büyük girdiğin gün sayısı sayılır.',
 }
 
+/** Hedef değerini birimiyle yazar; yüzde Türkçedeki gibi başa gelir. */
+function hedefYazisi(
+  tur: MikroTur,
+  tip: string,
+  birim: string | undefined,
+  deger: number,
+): string {
+  if (tur === 'gun') return `${deger} gün`
+  if (tip === 'percent') return `%${deger}`
+  return birim ? `${deger} ${birim}` : String(deger)
+}
+
 export function MikroHedefler() {
   const { ayarlar, ayarGuncelle } = useStore()
   const [hafta, setHafta] = useState(() => haftaBasi(bugunIso()))
@@ -105,8 +117,8 @@ export function MikroHedefler() {
                 <span className="flex-1 min-w-0">
                   <span className="text-sm font-medium block truncate">{def.label}</span>
                   <span className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
-                    {h.yon === 'enAz' ? 'en az' : 'en fazla'} {h.hedef}
-                    {h.tur === 'gun' ? ' gün' : def.birim ? ` ${def.birim}` : ''} · {TUR_ETIKETI[h.tur].toLowerCase()}
+                    {h.yon === 'enAz' ? 'en az' : 'en fazla'} {hedefYazisi(h.tur, def.type, def.birim, h.hedef)}
+                    {' · '}{TUR_ETIKETI[h.tur].toLowerCase()}
                   </span>
                 </span>
                 <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--c-ink-3)' }}>
