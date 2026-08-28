@@ -7,10 +7,10 @@ Telefon ve bilgisayardan kullanılmak üzere, mobil öncelikli tasarlandı.
 
 | Sütun | Frekans | İçerik |
 |---|---|---|
-| 🏋️ Vücut | Günlük + Haftalık | Antrenman (gitti mi, verim %, not); haftalık bel / kol / kilo ölçümü |
+| 🏋️ Vücut | Günlük + Haftalık | Antrenman (gitti mi, verim %, not), kardiyo (dk); haftalık ölçümler |
 | ⚡ Enerji & Keyif | Günlük | Uyku süresi ve kalitesi, enerji, mutluluk, beslenme, kalori dengesi, iş saati |
 | 🎯 Disiplin | Günlük | Disiplin puanı (%) — düşük puan = o gün çok ertelendi |
-| 🎤 Özgüven & İletişim | Günlük + Haftalık | Sahne programı çalışması (dk), kitap (sayfa); haftalık özgüven puanı ve notu |
+| 🎤 Özgüven & İletişim | Günlük + Haftalık | Sahne programı çalışması (dk), kitap okuma (dk); haftalık özgüven puanı ve notu |
 | 💰 Ek Gelir | Günlük | Ayrılan süre (dk), verim (%), ne yapıldığı |
 
 Tek bir birleşik "kamp skoru" **yoktur**. İlerleme; metrik bazlı haftalık yüzde
@@ -31,8 +31,23 @@ ileride Supabase adaptörü eklendiğinde cihazlar arası gerçek senkron devrey
 ve arayüz ekranlarında değişiklik gerekmeyecek. Supabase anahtarları da koda
 gömülmeyecek, uygulama içinden girilecek.
 
+## Hedefler
+
+İki ayrı katman var:
+
+- **Ölçüm hedefleri** (kamp boyu) — bel, kol, kilo gibi haftalık ölçülen değerler. Her biri için
+  başlangıç ve hedef değer girilir; **eklenebilir, değiştirilebilir, silinebilir**. Hedef değeri
+  boş bırakılırsa değer yalnızca izlenir (kilo böyle).
+- **Mikro hedefler** (haftalık) — "bu hafta 300 dk kitap oku" gibi somut hedefler. Herhangi bir
+  günlük metriğe konabilir; haftalık **toplam**, **ortalama** veya **kaç gün yaptım** olarak
+  ölçülür ve *en az* / *en fazla* yönünde tanımlanır. Gün gün veri girdikçe ne kadar kaldığı,
+  kaç gün kaldığı ve hedefe yetişmek için günlük gereken tempo görünür.
+
 ## Ekranlar
 
+- **Panel** — Ana ekran. Kamp ilerlemesi, bugünün durumu, bu haftanın hedefleri ve kalanları,
+  ölçüm hedeflerine uzaklık, son 14 günün eğilim çizgileri, haftalık en çok yükselen/düşen
+  metrikler ve seriler. Grafik kütüphanesi yüklemediği için hızlı açılır.
 - **Bugün** — Günlük giriş formu. Kampın kaçıncı günü olduğu ve kaç alanın doldurulduğu üstte.
 - **Hafta** — Pazar değerlendirmesi (özgüven puanı + not, ölçümler, dört metin alanı), haftanın
   otomatik özeti ve *bu hafta ↔ geçen hafta* karşılaştırma tablosu.
@@ -41,9 +56,10 @@ gömülmeyecek, uygulama içinden girilecek.
 - **Trendler** — Her metrik için gün gün grafik. Süre ve sayfa gibi biriken metrikler bar
   (hangi gün ne kadar), puan ve oranlar çizgi + 7 günlük hareketli ortalama. Üstte
   *ilk 2 hafta ↔ son 2 hafta* tablosu.
-- **Hedefler** — Bel (94 → 88 cm) ve kol (36 → 39 cm) için gerçek ölçüm çizgisi ile hedef
-  çizgisi üst üste; kat edilen yol, bugün olunması gereken değer ve mevcut tempoyla kamp
-  sonunda nerede olunacağı.
+- **Hedefler** — Ölçüm hedeflerinin yönetimi (ekle / değiştir / sil) ve her biri için gerçek
+  ölçüm çizgisi ile hedef çizgisi üst üste; kat edilen yol, bugün olunması gereken değer ve
+  mevcut tempoyla kamp sonunda nerede olunacağı.
+- **Mikro Hedefler** — Haftalık hedeflerin yönetimi ve o haftaki ilerleme.
 - **Geçmiş** — Kampın tamamının takvim ısı haritası, giriş ve antrenman serileri; geçmiş bir güne
   dokunup düzenleme.
 - **Ayarlar** — Kamp tarihleri, tema, alan aç/kapa, JSON yedek al / geri yükle, demo verisi.

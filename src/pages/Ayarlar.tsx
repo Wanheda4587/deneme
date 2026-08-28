@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import type { Backup } from '../lib/types.ts'
+import type { Backup, MikroHedef } from '../lib/types.ts'
+import { yeniId } from '../lib/kimlik.ts'
 import { Alan, Kart } from '../components/ui/Kart.tsx'
 import { METRIKLER, SUTUNLAR, sutununMetrikleri } from '../lib/metrics.ts'
 import { bugun as bugunIso, gunEkle, uzunTarih } from '../lib/date.ts'
@@ -185,7 +186,17 @@ export function Ayarlar() {
               // gerekir; bu yüzden başlangıç tarihi bugün 42. gün olacak şekilde geriye alınır.
               const eskiBaslangic = ayarlar.kampBaslangic
               const yeniBaslangic = gunEkle(bugunIso(), -(DEMO_GUN - 1))
-              ayarGuncelle({ kampBaslangic: yeniBaslangic })
+              // Hiç mikro hedef yoksa örnek birkaç tane koy ki Panel boş görünmesin.
+              const ornekHedefler: MikroHedef[] =
+                ayarlar.mikroHedefler.length > 0
+                  ? ayarlar.mikroHedefler
+                  : [
+                      { id: yeniId('mikro'), metrikId: 'kitapDk', hedef: 300, tur: 'toplam', yon: 'enAz', aktif: true },
+                      { id: yeniId('mikro'), metrikId: 'kardiyoDk', hedef: 120, tur: 'toplam', yon: 'enAz', aktif: true },
+                      { id: yeniId('mikro'), metrikId: 'sahneDk', hedef: 150, tur: 'toplam', yon: 'enAz', aktif: true },
+                      { id: yeniId('mikro'), metrikId: 'disiplin', hedef: 75, tur: 'ortalama', yon: 'enAz', aktif: true },
+                    ]
+              ayarGuncelle({ kampBaslangic: yeniBaslangic, mikroHedefler: ornekHedefler })
               const { gunler: g, haftalar: h } = demoUret(
                 bugunIso(), DEMO_GUN, yeniBaslangic, ayarlar.kampGunSayisi,
               )

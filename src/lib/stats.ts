@@ -1,6 +1,7 @@
 // İstatistik yardımcıları. Hiçbiri kullanıcıdan girdi almaz — hepsi türetilir.
-import type { DayEntry } from './types.ts'
+import type { DayEntry, MikroHedef, MikroTur } from './types.ts'
 import type { MetrikId, MetricDef } from './metrics.ts'
+import { metrik } from './metrics.ts'
 import { haftaninGunleri } from './date.ts'
 
 export interface NoktaSerisi {
@@ -119,9 +120,18 @@ export function haftaOzeti(
   }
 }
 
-/** Metriğin doğal özet biçimi: süre/sayfa gibi birikenler toplanır, puanlar ortalanır. */
+/** Metriğin doğal özet biçimi: süreler toplanır, puanlar ortalanır. */
+const BIRIKENLER = new Set<string>(['sahneDk', 'kitapDk', 'gelirDk', 'kardiyoDk'])
+
 export function birikenMi(id: MetrikId): boolean {
-  return id === 'sahneDk' || id === 'kitapSayfa' || id === 'gelirDk'
+  return BIRIKENLER.has(id)
+}
+
+/** Bir metrik için varsayılan haftalık ölçme biçimi. */
+export function varsayilanTur(id: MetrikId): MikroTur {
+  if (birikenMi(id)) return 'toplam'
+  if (metrik(id)?.type === 'bool') return 'gun'
+  return 'ortalama'
 }
 
 export function haftaDegeri(ozet: HaftaOzeti, id: MetrikId): number | null {
@@ -178,4 +188,79 @@ export function hedefDurumu(
     onde: fark === null ? null : fark >= 0,
     kalanGun: Math.max(toplamGun - gecenGun, 0),
   }
+}
+
+// ── Mikro hedefler (haftalık somut hedefler) ────────────────────────────────
+
+/** Bir metriğin haftalık değeri, seçilen ölçme biçimine göre. */
+export function haftalikDeger(
+  haftaBasiIso: string,
+  kayitlar: Map<string, DayEntry>,
+  id: MetrikId,
+  tur: MikroTur,
+): number {
+  const degerler = haftaninGunleri(haftaBasiIso).map((g) => metrikDegeri(kayitlar.get(g), id))
+  if (tur === 'toplam') return toplam(degerler)
+  if (tur === 'gun') return degerler.filter((d) => d !== null && d > 0).length
+  return ortalama(degerler) ?? 0
+}
+
+export interface MikroDurum {
+  hedef: MikroHedef
+  def: MetricDef
+  /** Bu haftaki mevcut değer. */
+  simdi: number
+  /** Hedefe kalan (enAz için eksik, enFazla için kalan bütçe). Negatifse aşılmış. */
+  kalan: number
+  /** 0-1+ arası ilerleme oranı. */
+  oran: number
+  tamam: boolean
+  /** Haftanın bitmesine kalan gün (bugün dahil). */
+  kalanGun: number
+  /** Hedefe yetişmek için günlük gereken tempo (yalnızca toplam/gün türünde anlamlı). */
+  gunlukGereken: number | null
+}
+
+export function mikroDurum(
+  hedef: MikroHedef,
+  haftaBasiIso: string,
+  kayitlar: Map<string, DayEntry>,
+  bugunIso: string,
+): MikroDurum | null {
+  const def = metrik(hedef.metrikId as MetrikId)
+  if (!def) return null
+
+  const simdi = haftalikDeger(haftaBasiIso, kayitlar, hedef.metrikId as MetrikId, hedef.tur)
+  // Haftanın bitmesine kalan gün — bugün dahil. Geçmiş bir haftaya bakılıyorsa 0.
+  const kalanGun = haftaninGunleri(haftaBasiIso).filter((g) => g >= bugunIso).length
+
+  if (hedef.yon === 'enFazla') {
+    const kalan = hedef.hedef - simdi
+    return {
+      hedef, def, simdi, kalan,
+      oran: hedef.hedef === 0 ? 0 : simdi / hedef.hedef,
+      tamam: simdi <= hedef.hedef,
+      kalanGun,
+      gunlukGereken: null,
+    }
+  }
+
+  const kalan = Math.max(hedef.hedef - simdi, 0)
+  return {
+    hedef, def, simdi, kalan,
+    oran: hedef.hedef === 0 ? 1 : simdi / hedef.hedef,
+    tamam: simdi >= hedef.hedef,
+    kalanGun,
+    gunlukGereken:
+      hedef.tur === 'ortalama' || kalan === 0 || kalanGun === 0 ? null : kalan / kalanGun,
+  }
+}
+
+/** Mikro hedefin okunur birimi ve biçimi. Yüzde Türkçedeki gibi başa yazılır. */
+export function mikroBicim(durum: MikroDurum, deger: number): string {
+  const { def, hedef } = durum
+  if (hedef.tur === 'gun') return `${Math.round(deger)} gün`
+  const yuvarlak = Number.isInteger(deger) ? String(deger) : deger.toFixed(1)
+  if (def.type === 'percent') return `%${yuvarlak}`
+  return def.birim ? `${yuvarlak} ${def.birim}` : yuvarlak
 }

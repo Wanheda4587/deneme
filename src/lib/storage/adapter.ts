@@ -21,4 +21,11 @@ export const VARSAYILAN_AYARLAR: Settings = {
   kampGunSayisi: 91,
   gizliMetrikler: [],
   tema: 'dark',
+  // Başlangıç hedefleri — Hedefler ekranından değiştirilebilir, silinebilir, yenisi eklenebilir.
+  olcumHedefleri: [
+    { id: 'bel', label: 'Bel', baslangic: 94, hedef: 88, birim: 'cm' },
+    { id: 'kol', label: 'Kol', baslangic: 36, hedef: 39, birim: 'cm' },
+    { id: 'kilo', label: 'Kilo', baslangic: 79.3, hedef: null, birim: 'kg' },
+  ],
+  mikroHedefler: [],
 }

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { WeekEntry } from '../lib/types.ts'
-import { OLCUM_HEDEFLERI } from '../lib/types.ts'
 import { Alan, Kart } from '../components/ui/Kart.tsx'
 import { MetinAlani, Olcek, Sayi } from '../components/ui/Girdiler.tsx'
 import { HaftaKarsilastirma } from '../components/HaftaKarsilastirma.tsx'
+import { MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
 import {
   bugun as bugunIso,
   gunEkle,
@@ -36,34 +36,42 @@ export function Hafta() {
     setKilitAcik(false)
   }
 
-  const { kampBaslangic, kampGunSayisi } = ayarlar
+  const { kampBaslangic, kampGunSayisi, olcumHedefleri } = ayarlar
   const kayit: WeekEntry = haftalar.get(hafta) ?? { weekStart: hafta, updatedAt: '' }
   const oncekiKayit = haftalar.get(gunEkle(hafta, -7))
   const haftaNo = kampHaftasi(hafta, kampBaslangic, kampGunSayisi)
   const gunlerBu = haftaninGunleri(hafta)
   const gizli = new Set(ayarlar.gizliMetrikler)
+  const olcumler = kayit.olcumler ?? {}
 
   // ── Otomatik özet ──
   const antrenmanGun = gunlerBu.filter((g) => gunler.get(g)?.antrenman === true).length
   const antrenmanVerim = haftaOzeti(hafta, gunler, 'antrenmanVerimi').ortalama
+  const kardiyoTop = haftaOzeti(hafta, gunler, 'kardiyoDk').toplam
   const disiplinOrt = haftaOzeti(hafta, gunler, 'disiplin').ortalama
   const disiplinGecen = haftaOzeti(gunEkle(hafta, -7), gunler, 'disiplin').ortalama
   const sahneTop = haftaOzeti(hafta, gunler, 'sahneDk').toplam
-  const kitapTop = haftaOzeti(hafta, gunler, 'kitapSayfa').toplam
+  const kitapTop = haftaOzeti(hafta, gunler, 'kitapDk').toplam
   const gelirCaba = toplam(gunlerBu.map((g) => etkinCaba(gunler.get(g))))
   const ozguvenDegisim = yuzdeDegisim(oncekiKayit?.ozguven ?? null, kayit.ozguven ?? null)
 
   const olcumKilitli = kayit.olcumKilitli === true && !kilitAcik
-  const olcumGirildi =
-    kayit.bel !== undefined || kayit.kol !== undefined || kayit.kilo !== undefined
+  const olcumGirildi = Object.keys(olcumler).length > 0
 
   const guncelle = (yama: Partial<WeekEntry>) => haftaGuncelle(hafta, yama)
+  const olcumYaz = (id: string, deger: number | undefined) => {
+    const yeni = { ...olcumler }
+    if (deger === undefined) delete yeni[id]
+    else yeni[id] = deger
+    guncelle({ olcumler: yeni })
+  }
 
   const ozetler: { etiket: string; deger: string; alt?: string }[] = [
     { etiket: 'Antrenman', deger: `${antrenmanGun}/7 gün`, alt: antrenmanVerim !== null ? `ort. %${antrenmanVerim.toFixed(0)} verim` : undefined },
+    { etiket: 'Kardiyo', deger: `${kardiyoTop} dk` },
     { etiket: 'Disiplin', deger: disiplinOrt !== null ? `%${disiplinOrt.toFixed(0)}` : '—', alt: disiplinGecen !== null ? `geçen hafta %${disiplinGecen.toFixed(0)}` : undefined },
     { etiket: 'Sahne', deger: `${sahneTop} dk` },
-    { etiket: 'Kitap', deger: `${kitapTop} sayfa` },
+    { etiket: 'Kitap', deger: `${kitapTop} dk` },
     { etiket: 'Ek gelir etkin çaba', deger: `${Math.round(gelirCaba)} dk`, alt: 'dakika × verim' },
   ]
 
@@ -88,6 +96,11 @@ export function Hafta() {
           Haftalık değerlendirmeyi Pazar günü doldurmak için tasarlandı — ama istediğin an girebilirsin.
         </p>
       )}
+
+      {/* Bu haftanın mikro hedefleri */}
+      <Kart baslik="Bu haftanın hedefleri" ikon="🎯">
+        <MikroHedefListesi haftaBasiIso={hafta} />
+      </Kart>
 
       {/* Otomatik özet — girilmez, hesaplanır */}
       <Kart baslik="Haftanın özeti" ikon="📊">
@@ -139,36 +152,31 @@ export function Hafta() {
         baslik="Ölçümler"
         ikon="📏"
         pillar="vucut"
-        sag={
-          olcumKilitli ? (
-            <span className="rozet"><span aria-hidden="true">🔒</span> kilitli</span>
-          ) : undefined
-        }
+        sag={olcumKilitli ? <span className="rozet"><span aria-hidden="true">🔒</span> kilitli</span> : undefined}
       >
-        {olcumKilitli ? (
+        {olcumHedefleri.length === 0 ? (
+          <p className="alan text-sm" style={{ color: 'var(--c-ink-3)' }}>
+            Tanımlı ölçüm yok. Hedefler ekranından ekleyebilirsin.
+          </p>
+        ) : olcumKilitli ? (
           <div className="alan flex flex-col gap-3">
             <div className="grid grid-cols-3 gap-3">
-              {(['bel', 'kol', 'kilo'] as const).map((alan) => {
-                const hedef = OLCUM_HEDEFLERI.find((h) => h.id === alan)
-                return (
-                  <div key={alan}>
-                    <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
-                      {alan === 'bel' ? 'Bel' : alan === 'kol' ? 'Kol' : 'Kilo'}
-                    </div>
-                    <div className="rakam font-semibold text-lg">
-                      {kayit[alan] !== undefined ? kayit[alan] : '—'}
-                      <span className="text-xs font-normal" style={{ color: 'var(--c-ink-3)' }}>
-                        {' '}{alan === 'kilo' ? 'kg' : 'cm'}
-                      </span>
-                    </div>
-                    {hedef && (
-                      <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
-                        hedef {hedef.hedef} {hedef.birim}
-                      </div>
-                    )}
+              {olcumHedefleri.map((h) => (
+                <div key={h.id}>
+                  <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>{h.label}</div>
+                  <div className="rakam font-semibold text-lg">
+                    {olcumler[h.id] ?? '—'}
+                    <span className="text-xs font-normal" style={{ color: 'var(--c-ink-3)' }}>
+                      {' '}{h.birim}
+                    </span>
                   </div>
-                )
-              })}
+                  {h.hedef !== null && (
+                    <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
+                      hedef {h.hedef} {h.birim}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
             {kayit.olcumTarihi && (
               <p className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
@@ -185,19 +193,16 @@ export function Hafta() {
               Ölçümler haftada <strong>bir kez</strong> girilir. Kaydettikten sonra bu hafta için
               kilitlenir — ikinci bir giriş kabul edilmez.
             </p>
-            {(['bel', 'kol', 'kilo'] as const).map((alan) => (
-              <Alan
-                key={alan}
-                etiket={alan === 'bel' ? 'Bel' : alan === 'kol' ? 'Kol' : 'Kilo'}
-              >
+            {olcumHedefleri.map((h) => (
+              <Alan key={h.id} etiket={h.label}>
                 <Sayi
-                  deger={kayit[alan]}
-                  onChange={(v) => guncelle({ [alan]: v } as Partial<WeekEntry>)}
-                  min={alan === 'kilo' ? 30 : 20}
-                  max={alan === 'kilo' ? 250 : 200}
-                  adim={alan === 'kilo' ? 0.1 : 0.5}
-                  birim={alan === 'kilo' ? 'kg' : 'cm'}
-                  etiketi={alan}
+                  deger={olcumler[h.id]}
+                  onChange={(v) => olcumYaz(h.id, v)}
+                  min={0}
+                  max={500}
+                  adim={h.birim === 'kg' ? 0.1 : 0.5}
+                  birim={h.birim}
+                  etiketi={h.label}
                 />
               </Alan>
             ))}
@@ -213,9 +218,7 @@ export function Hafta() {
               >
                 Ölçümü kaydet ve kilitle
               </button>
-              {!olcumGirildi && (
-                <p className="ipucu">Kaydetmek için en az bir ölçüm gir.</p>
-              )}
+              {!olcumGirildi && <p className="ipucu">Kaydetmek için en az bir ölçüm gir.</p>}
             </div>
           </>
         )}

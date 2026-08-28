@@ -16,16 +16,60 @@ function bosDepo(): Depo {
   return { days: {}, weeks: {}, settings: { ...VARSAYILAN_AYARLAR } }
 }
 
+/**
+ * Eski kayıtları güncel şemaya taşır. Yıkıcı değildir: eski alanlar silinmez,
+ * yalnızca yeni alanlar doldurulur; böylece bir sürüm geri alınsa veri durur.
+ * Bir şey değiştiyse true döner, çağıran sonucu diske geri yazar.
+ */
+function goc(depo: Depo): boolean {
+  let degisti = false
+
+  for (const gun of Object.values(depo.days)) {
+    // Kitap takibi sayfadan dakikaya geçti. Sayı birebir taşınır (yaklaşık
+    // 1 sayfa ≈ 1 dakika); yanlışsa kullanıcı ilgili günden düzeltebilir.
+    if (gun.kitapDk === undefined && typeof gun.kitapSayfa === 'number') {
+      gun.kitapDk = gun.kitapSayfa
+      degisti = true
+    }
+  }
+
+  for (const hafta of Object.values(depo.weeks)) {
+    if (hafta.olcumler === undefined) {
+      const olcumler: Record<string, number> = {}
+      // Sabit bel/kol/kilo alanları, hedef id'sine göre haritaya taşındı.
+      for (const alan of ['bel', 'kol', 'kilo'] as const) {
+        const v = hafta[alan]
+        if (typeof v === 'number' && Number.isFinite(v)) olcumler[alan] = v
+      }
+      if (Object.keys(olcumler).length > 0) {
+        hafta.olcumler = olcumler
+        degisti = true
+      }
+    }
+  }
+
+  return degisti
+}
+
 function oku(): Depo {
   try {
     const ham = localStorage.getItem(ANAHTAR)
     if (!ham) return bosDepo()
     const veri = JSON.parse(ham) as Partial<Depo>
-    return {
+    const depo: Depo = {
       days: veri.days ?? {},
       weeks: veri.weeks ?? {},
       settings: { ...VARSAYILAN_AYARLAR, ...(veri.settings ?? {}) },
     }
+    // Göç bir kez yapılıp kalıcılaşsın; her okumada tekrarlanmasın.
+    if (goc(depo)) {
+      try {
+        yaz(depo)
+      } catch {
+        // Yazamasak da okunan veri güncel şemada; uygulama çalışmaya devam eder.
+      }
+    }
+    return depo
   } catch {
     // Bozuk/erişilemez depo uygulamayı kilitlemesin.
     return bosDepo()
@@ -91,6 +135,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       weeks: Object.fromEntries((yedek.weeks ?? []).map((h) => [h.weekStart, h])),
       settings: { ...VARSAYILAN_AYARLAR, ...(yedek.settings ?? {}) },
     }
+    goc(depo)
     yaz(depo)
   }
 

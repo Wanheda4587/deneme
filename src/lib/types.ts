@@ -10,6 +10,7 @@ export interface DayEntry {
   // — Vücut —
   antrenman?: boolean
   antrenmanVerimi?: number // %0-100
+  kardiyoDk?: number
   antrenmanNotu?: string // gittiyse not, gitmediyse sebep
 
   // — Enerji & Keyif —
@@ -26,7 +27,7 @@ export interface DayEntry {
 
   // — Özgüven & İletişim —
   sahneDk?: number
-  kitapSayfa?: number
+  kitapDk?: number
 
   // — Ek Gelir —
   gelirDk?: number
@@ -35,20 +36,21 @@ export interface DayEntry {
 
   gunNotu?: string
   updatedAt: string
+
+  /** @deprecated kitapDk'ya taşındı; yalnızca eski kayıtları okumak için. */
+  kitapSayfa?: number
 }
 
-/** Bir haftanın kaydı. Anahtar: weekStart (o haftanın Pazartesi'si, YYYY-MM-DD). */
+/** Bir haftanın kaydı. Anahtar: weekStart (o haftanın Pazartesi'si). */
 export interface WeekEntry {
   weekStart: string
 
   ozguven?: number // 1-10
   ozguvenNotu?: string
 
-  // Ölçümler — haftada TEK giriş. Kaydedilince kilitlenir.
-  bel?: number
-  kol?: number
-  kilo?: number
-  olcumTarihi?: string // ölçümün fiilen girildiği gün
+  /** Ölçüm hedefi id'si → o hafta girilen değer. Haftada TEK giriş, sonra kilitlenir. */
+  olcumler?: Record<string, number>
+  olcumTarihi?: string
   olcumKilitli?: boolean
 
   ozguvenIcinNeYaptim?: string
@@ -57,6 +59,40 @@ export interface WeekEntry {
   gelecekHaftaOdagi?: string
 
   updatedAt: string
+
+  /** @deprecated olcumler'e taşındı; yalnızca eski kayıtları okumak için. */
+  bel?: number
+  /** @deprecated olcumler'e taşındı. */
+  kol?: number
+  /** @deprecated olcumler'e taşındı. */
+  kilo?: number
+}
+
+// ── Hedefler ────────────────────────────────────────────────────────────────
+
+/** Kamp boyu sürecek ölçüm hedefi (bel, kol, kilo…). Haftalık girilir. */
+export interface OlcumHedefi {
+  id: string
+  label: string
+  baslangic: number
+  /** null = hedef yok, yalnızca izlenir (örn. kilo). */
+  hedef: number | null
+  birim: string
+}
+
+/** Haftalık değerin nasıl hesaplanacağı. */
+export type MikroTur = 'toplam' | 'ortalama' | 'gun'
+/** Hedefin altına düşmemek mi, üstüne çıkmamak mı. */
+export type MikroYon = 'enAz' | 'enFazla'
+
+/** Haftalık somut hedef: "bu hafta 300 dk kitap oku" gibi. */
+export interface MikroHedef {
+  id: string
+  metrikId: string
+  hedef: number
+  tur: MikroTur
+  yon: MikroYon
+  aktif: boolean
 }
 
 export interface Settings {
@@ -64,6 +100,8 @@ export interface Settings {
   kampGunSayisi: number
   gizliMetrikler: string[] // metrik id'leri — formda gizlenir
   tema: 'dark' | 'light'
+  olcumHedefleri: OlcumHedefi[]
+  mikroHedefler: MikroHedef[]
 }
 
 export interface Backup {
@@ -73,17 +111,3 @@ export interface Backup {
   weeks: WeekEntry[]
   settings: Settings
 }
-
-/** Kullanıcının verdiği gerçek hedefler. */
-export interface OlcumHedefi {
-  id: 'bel' | 'kol'
-  label: string
-  baslangic: number
-  hedef: number
-  birim: string
-}
-
-export const OLCUM_HEDEFLERI: OlcumHedefi[] = [
-  { id: 'bel', label: 'Bel', baslangic: 94, hedef: 88, birim: 'cm' },
-  { id: 'kol', label: 'Kol', baslangic: 36, hedef: 39, birim: 'cm' },
-]
