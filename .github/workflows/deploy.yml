@@ -28,11 +28,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      # enablement: repoda Pages kapalıysa akış kendisi açmayı dener,
-      # böylece elle Settings > Pages ayarı gerekmez.
+      # Not: Pages'in repoda açık olması gerekir. Akıştaki GITHUB_TOKEN Pages
+      # sitesini kendisi oluşturamıyor (Resource not accessible by integration),
+      # bu yüzden bir kereye mahsus Settings > Pages > Source = GitHub Actions
+      # seçilmelidir.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

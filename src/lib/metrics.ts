@@ -126,7 +126,3 @@ export const METIN_ALANLARI: MetinAlanDef[] = [
   { id: 'gelirNotu', pillar: 'gelir', label: 'Ne yaptım?', placeholder: 'Bugün ek gelir için ne üzerinde çalıştım?', satir: 2 },
   { id: 'gunNotu', pillar: 'gelir', label: 'Gün notu', placeholder: 'Bugün nasıl geçti?', satir: 3 },
 ]
-
-export function sutununMetinAlanlari(p: Pillar): MetinAlanDef[] {
-  return METIN_ALANLARI.filter((a) => a.id !== 'gunNotu' && a.pillar === p)
-}

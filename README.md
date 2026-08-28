@@ -53,7 +53,10 @@ gömülmeyecek, uygulama içinden girilecek.
 `main` veya geliştirme dalına push edildiğinde GitHub Actions derleyip GitHub Pages'e yayınlar
 (`.github/workflows/deploy.yml`).
 
-**Tek seferlik kurulum:** GitHub → repo **Settings → Pages → Source = GitHub Actions**.
+**Tek seferlik kurulum (zorunlu):** GitHub → repo **Settings → Pages → Source = GitHub Actions**.
+Bu yapılmadan yayın adımı `Create Pages site failed — Resource not accessible by integration`
+hatasıyla düşer; akıştaki token Pages sitesini kendisi oluşturamıyor. Ayar bir kez yapıldıktan
+sonra her push otomatik yayınlanır.
 
 Uygulama bir PWA'dır: telefonda tarayıcıdan açıp "Ana ekrana ekle" dendiğinde uygulama gibi
 çalışır ve internet olmadan da açılır.

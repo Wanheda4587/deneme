@@ -29,6 +29,13 @@ export function Hafta() {
   const [hafta, setHafta] = useState(() => haftaBasi(bugunIso()))
   const [kilitAcik, setKilitAcik] = useState(false)
 
+  // Kilit yalnızca açıldığı hafta için geçerli olmalı; başka haftaya geçince
+  // o haftanın ölçümü yanlışlıkla düzenlenebilir görünmesin.
+  const haftayaGit = (yeni: string) => {
+    setHafta(yeni)
+    setKilitAcik(false)
+  }
+
   const { kampBaslangic, kampGunSayisi } = ayarlar
   const kayit: WeekEntry = haftalar.get(hafta) ?? { weekStart: hafta, updatedAt: '' }
   const oncekiKayit = haftalar.get(gunEkle(hafta, -7))
@@ -64,7 +71,7 @@ export function Hafta() {
     <div className="flex flex-col gap-4">
       {/* Hafta gezinme */}
       <div className="kart p-3 flex items-center gap-2">
-        <button type="button" className="dugme" aria-label="Önceki hafta" onClick={() => setHafta(gunEkle(hafta, -7))}>‹</button>
+        <button type="button" className="dugme" aria-label="Önceki hafta" onClick={() => haftayaGit(gunEkle(hafta, -7))}>‹</button>
         <div className="flex-1 text-center min-w-0">
           <div className="text-sm font-semibold">
             {haftaNo !== null ? `${haftaNo}. hafta` : 'Kamp dışı hafta'}
@@ -73,7 +80,7 @@ export function Hafta() {
             {kisaTarih(hafta)} – {kisaTarih(gunEkle(hafta, 6))}
           </div>
         </div>
-        <button type="button" className="dugme" aria-label="Sonraki hafta" disabled={hafta >= haftaBasi(bugunIso())} onClick={() => setHafta(gunEkle(hafta, 7))}>›</button>
+        <button type="button" className="dugme" aria-label="Sonraki hafta" disabled={hafta >= haftaBasi(bugunIso())} onClick={() => haftayaGit(gunEkle(hafta, 7))}>›</button>
       </div>
 
       {!pazarMi(bugunIso()) && hafta === haftaBasi(bugunIso()) && (

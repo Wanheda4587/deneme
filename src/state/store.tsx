@@ -37,6 +37,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [gunler, setGunler] = useState<Map<string, DayEntry>>(new Map())
   const [haftalar, setHaftalar] = useState<Map<string, WeekEntry>>(new Map())
   const [ayarlar, setAyarlar] = useState<Settings>(VARSAYILAN_AYARLAR)
+  const ayarlarRef = useRef<Settings>(VARSAYILAN_AYARLAR)
   const [kaydediliyor, setKaydediliyor] = useState(false)
   const [hata, setHata] = useState<string | null>(null)
 
@@ -59,6 +60,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setGunler(new Map(g.map((x) => [x.date, x])))
         setHaftalar(new Map(h.map((x) => [x.weekStart, x])))
         setAyarlar(a)
+        ayarlarRef.current = a
       } catch (e) {
         if (!iptal) setHata(e instanceof Error ? e.message : 'Veri okunamadı.')
       } finally {
@@ -144,13 +146,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [yazmayiPlanla],
   )
 
-  const ayarGuncelle = useCallback((yama: Partial<Settings>) => {
-    setAyarlar((onceki) => {
-      const yeni = { ...onceki, ...yama }
+  // Yan etki güncelleyicinin dışında: React güncelleyiciyi birden çok kez
+  // çağırabilir, kaydetme bir kez olmalı.
+  const ayarGuncelle = useCallback(
+    (yama: Partial<Settings>) => {
+      const yeni = { ...ayarlarRef.current, ...yama }
+      ayarlarRef.current = yeni
+      setAyarlar(yeni)
       void depo().ayarlariKaydet(yeni)
-      return yeni
-    })
-  }, [])
+    },
+    [],
+  )
 
   const disaAktar = useCallback(async () => {
     if (zamanlayici.current) clearTimeout(zamanlayici.current)
@@ -162,7 +168,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await depo().tumunuIceAktar(yedek)
     setGunler(new Map((yedek.days ?? []).map((x) => [x.date, x])))
     setHaftalar(new Map((yedek.weeks ?? []).map((x) => [x.weekStart, x])))
-    setAyarlar({ ...VARSAYILAN_AYARLAR, ...(yedek.settings ?? {}) })
+    const yeniAyarlar = { ...VARSAYILAN_AYARLAR, ...(yedek.settings ?? {}) }
+    setAyarlar(yeniAyarlar)
+    ayarlarRef.current = yeniAyarlar
   }, [])
 
   const hepsiniSil = useCallback(async () => {
@@ -170,6 +178,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setGunler(new Map())
     setHaftalar(new Map())
     setAyarlar({ ...VARSAYILAN_AYARLAR })
+    ayarlarRef.current = { ...VARSAYILAN_AYARLAR }
   }, [])
 
   const topluYukle = useCallback(

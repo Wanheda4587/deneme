@@ -1,8 +1,7 @@
 // İstatistik yardımcıları. Hiçbiri kullanıcıdan girdi almaz — hepsi türetilir.
-import type { DayEntry, WeekEntry } from './types.ts'
+import type { DayEntry } from './types.ts'
 import type { MetrikId, MetricDef } from './metrics.ts'
-import { metrik } from './metrics.ts'
-import { haftaBasi, haftaninGunleri } from './date.ts'
+import { haftaninGunleri } from './date.ts'
 
 export interface NoktaSerisi {
   date: string
@@ -179,31 +178,4 @@ export function hedefDurumu(
     onde: fark === null ? null : fark >= 0,
     kalanGun: Math.max(toplamGun - gecenGun, 0),
   }
-}
-
-/** Haftalık kayıtlardan bir ölçümün en son girilen değeri. */
-export function sonOlcum(
-  haftalar: WeekEntry[],
-  alan: 'bel' | 'kol' | 'kilo',
-): number | null {
-  const sirali = [...haftalar].sort((a, b) => b.weekStart.localeCompare(a.weekStart))
-  for (const h of sirali) {
-    const v = h[alan]
-    if (typeof v === 'number' && Number.isFinite(v)) return v
-  }
-  return null
-}
-
-/** Bir metriğin değerini birimiyle birlikte okunur hale getirir. */
-export function bicimle(id: MetrikId, deger: number | null, ondalik = 1): string {
-  if (deger === null) return '—'
-  const def = metrik(id)
-  if (def.type === 'bool') return deger >= 0.5 ? 'Evet' : 'Hayır'
-  const yuvarlak = Number.isInteger(deger) ? String(deger) : deger.toFixed(ondalik)
-  return def.birim ? `${yuvarlak} ${def.birim}` : yuvarlak
-}
-
-/** Verilen günün haftasının Pazartesi'si — kısayol. */
-export function gununHaftasi(isoStr: string): string {
-  return haftaBasi(isoStr)
 }
