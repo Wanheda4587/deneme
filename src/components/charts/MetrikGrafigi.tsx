@@ -95,6 +95,25 @@ export function MetrikGrafigi({
   }
 
   const eksenStili = { fill: renk.ink3, fontSize: 11 }
+
+  // Sayısal metriklerde Y ekseni aralığı.
+  // Tek nokta veya hep aynı değer varsa recharts eksenini saçma daraltıyor
+  // (tek bir -850 için -848…-852 gibi); bu durumda aralık genişletilir.
+  // İşaretli metriklerde sıfır her zaman eksende kalır, artı/eksi okunabilsin.
+  const sayisal = seri.map((n) => n.deger).filter((v): v is number => v !== null)
+  const sayiAraligi = (): [number, number] | undefined => {
+    if (sayisal.length === 0) return undefined
+    let alt = Math.min(...sayisal)
+    let ust = Math.max(...sayisal)
+    if (alt < 0) ust = Math.max(ust, 0)
+    if (ust > 0) alt = Math.min(alt, 0)
+    if (alt === ust) {
+      const pay = Math.max(Math.abs(alt) * 0.25, 10)
+      return [Math.floor(alt - pay), Math.ceil(ust + pay)]
+    }
+    const pay = (ust - alt) * 0.1
+    return [Math.floor(alt - pay), Math.ceil(ust + pay)]
+  }
   const etiketAralik = veri.length > 40 ? 13 : veri.length > 20 ? 6 : 2
   const xEtiketi = (d: string) => (veri.length > 8 ? kisaTarih(d) : gunAdiKisa(d))
 
@@ -120,7 +139,16 @@ export function MetrikGrafigi({
           <LineChart data={veri} margin={{ top: 8, right: 22, bottom: 0, left: -12 }}>
             <CartesianGrid stroke={renk.izgara} strokeDasharray="0" vertical={false} />
             <XAxis dataKey="date" reversed={ters} tickFormatter={xEtiketi} tick={eksenStili} interval={etiketAralik} axisLine={{ stroke: renk.izgara }} tickLine={false} />
-            <YAxis tick={eksenStili} axisLine={false} tickLine={false} width={44} domain={def.type === 'scale' ? [0, 10] : def.type === 'percent' ? [0, 100] : ['auto', 'auto']} />
+            <YAxis
+              tick={eksenStili} axisLine={false} tickLine={false} width={52}
+              domain={
+                def.type === 'scale'
+                  ? [0, 10]
+                  : def.type === 'percent'
+                    ? [0, 100]
+                    : (sayiAraligi() ?? ['auto', 'auto'])
+              }
+            />
             <Tooltip cursor={{ stroke: renk.ink3, strokeWidth: 1 }} content={<Balon def={def} ortalamaGoster />} />
             {/* Ham günlük değer: ince, noktalı — tek tek günler görünsün */}
             <Line

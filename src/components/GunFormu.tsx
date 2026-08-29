@@ -4,7 +4,7 @@ import {
   SUTUNLAR,
   sutununMetrikleri,
 } from '../lib/metrics.ts'
-import type { MetrikId } from '../lib/metrics.ts'
+import type { MetricDef, MetrikId } from '../lib/metrics.ts'
 import { useStore } from '../state/store.tsx'
 import { Alan, Kart } from './ui/Kart.tsx'
 import { MetinAlani, MetrikAlani } from './ui/Girdiler.tsx'
@@ -100,16 +100,33 @@ export function GunFormu({ date }: { date: string }) {
   )
 }
 
+/**
+ * O gün için sorulması anlamlı olan metrikler.
+ * Antrenmana gidilmediyse "antrenman verimi" sorulmaz; dolayısıyla eksik de sayılmaz —
+ * yoksa toplam alan sayısına asla ulaşılamazdı.
+ */
+export function gecerliMetrikler(
+  kayit: DayEntry | undefined,
+  gizli: Set<string>,
+): MetricDef[] {
+  const antrenmanaGitti = kayit?.antrenman === true
+  return SUTUNLAR.flatMap((s) => sutununMetrikleri(s.id))
+    .filter((m) => !gizli.has(m.id))
+    .filter((m) => !m.antrenmanaBagli || antrenmanaGitti)
+}
+
+/** O gün için henüz doldurulmamış metrikler. */
+export function eksikMetrikler(
+  kayit: DayEntry | undefined,
+  gizli: Set<string>,
+): MetricDef[] {
+  return gecerliMetrikler(kayit, gizli).filter((m) => {
+    const v = kayit?.[m.id as MetrikId]
+    return v === undefined || v === null
+  })
+}
+
 /** Bir günde doldurulmuş metrik sayısı — "bugün ne kadarını girdim" göstergesi. */
 export function doluAlanSayisi(kayit: DayEntry | undefined, gizli: Set<string>): number {
-  if (!kayit) return 0
-  const idler = SUTUNLAR.flatMap((s) => sutununMetrikleri(s.id))
-    .filter((m) => !gizli.has(m.id))
-    .map((m) => m.id as MetrikId)
-  let n = 0
-  for (const id of idler) {
-    const v = kayit[id]
-    if (v !== undefined && v !== null) n++
-  }
-  return n
+  return gecerliMetrikler(kayit, gizli).length - eksikMetrikler(kayit, gizli).length
 }

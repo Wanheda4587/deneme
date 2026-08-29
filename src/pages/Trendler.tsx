@@ -5,7 +5,16 @@ import { METRIKLER, SUTUNLAR } from '../lib/metrics.ts'
 import type { MetrikId } from '../lib/metrics.ts'
 import type { Pillar } from '../lib/types.ts'
 import { bugun as bugunIso, gunEkle, gunFarki, kampGunleri } from '../lib/date.ts'
-import { birikenMi, degisimYonu, metrikSerisi, ortalama, sureBicimi, toplam } from '../lib/stats.ts'
+import {
+  birikenMi,
+  degisimYonu,
+  kaloriBicimi,
+  kaloriOzeti,
+  metrikSerisi,
+  ortalama,
+  sureBicimi,
+  toplam,
+} from '../lib/stats.ts'
 import { useStore } from '../state/store.tsx'
 
 type Aralik = 14 | 30 | 0 // 0 = tüm kamp
@@ -46,6 +55,13 @@ export function Trendler() {
 
   // İlk 2 hafta ↔ son 2 hafta: kampın işe yarayıp yaramadığının en dürüst testi
   const gecenGun = Math.min(Math.max(gunFarki(kampBaslangic, bugunStr) + 1, 0), kampGunSayisi)
+  // Kalori: toplam açık/fazla — ortalama tek başına "ne kadar açık verdim" sorusunu
+  // cevaplamıyor, kümülatif toplam cevaplıyor.
+  const kampBugune = tumGunler.filter((g) => g <= bugunStr)
+  const son7 = Array.from({ length: 7 }, (_, i) => gunEkle(bugunStr, -(6 - i)))
+  const kaloriKamp = kaloriOzeti(kampBugune, gunler)
+  const kaloriHafta = kaloriOzeti(son7, gunler)
+
   const ilk14 = tumGunler.slice(0, 14)
   const son14 = tumGunler.slice(Math.max(0, gecenGun - 14), gecenGun)
   const donemKarsilastirmasiVar = gecenGun >= 28
@@ -198,6 +214,30 @@ export function Trendler() {
               seri={seri}
               tip={biriken || def.type === 'bool' ? 'bar' : 'cizgi'}
             />
+            {def.id === 'kaloriDengesi' && (
+              <div className="alan grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
+                    Kamp başından beri
+                  </div>
+                  <div className="rakam font-semibold text-lg">
+                    {kaloriKamp.doluGun === 0 ? '—' : kaloriBicimi(kaloriKamp.net)}
+                  </div>
+                  <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
+                    {kaloriKamp.doluGun} günün toplamı
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>Son 7 gün</div>
+                  <div className="rakam font-semibold text-lg">
+                    {kaloriHafta.doluGun === 0 ? '—' : kaloriBicimi(kaloriHafta.net)}
+                  </div>
+                  <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
+                    {kaloriHafta.doluGun} günün toplamı
+                  </div>
+                </div>
+              </div>
+            )}
           </Kart>
         )
       })}

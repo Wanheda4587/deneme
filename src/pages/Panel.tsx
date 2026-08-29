@@ -1,8 +1,8 @@
 import { IlerlemeCubugu, Kart, sutunRengi } from '../components/ui/Kart.tsx'
 import { Sparkline } from '../components/charts/Sparkline.tsx'
 import { MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
-import { doluAlanSayisi } from '../components/GunFormu.tsx'
-import { METRIKLER, SUTUNLAR, sutununMetrikleri } from '../lib/metrics.ts'
+import { doluAlanSayisi, eksikMetrikler, gecerliMetrikler } from '../components/GunFormu.tsx'
+import { METRIKLER } from '../lib/metrics.ts'
 import type { MetrikId } from '../lib/metrics.ts'
 import {
   bugun as bugunIso,
@@ -40,10 +40,10 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
   const gecenGun = Math.min(Math.max(gunFarki(kampBaslangic, bugun) + 1, 0), kampGunSayisi)
   const baslangicaKalan = gunFarki(bugun, kampBaslangic)
 
-  const toplamAlan = SUTUNLAR.flatMap((s) => sutununMetrikleri(s.id)).filter(
-    (m) => !gizli.has(m.id),
-  ).length
-  const bugunDolu = doluAlanSayisi(gunler.get(bugun), gizli)
+  const bugunKaydi = gunler.get(bugun)
+  const toplamAlan = gecerliMetrikler(bugunKaydi, gizli).length
+  const bugunDolu = doluAlanSayisi(bugunKaydi, gizli)
+  const eksikler = eksikMetrikler(bugunKaydi, gizli)
 
   const buHafta = haftaBasi(bugun)
   const gecenHafta = gunEkle(buHafta, -7)
@@ -328,6 +328,45 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
                 ))
               )}
             </div>
+          </div>
+        )}
+      </Kart>
+
+      {/* Bugün eksik kalanlar */}
+      <Kart
+        baslik="Bugün eksik kalanlar"
+        ikon="📝"
+        sag={
+          <span className="rakam text-xs" style={{ color: 'var(--c-ink-3)' }}>
+            {eksikler.length} alan
+          </span>
+        }
+      >
+        {eksikler.length === 0 ? (
+          <p className="alan text-sm" style={{ color: 'var(--d-iyi)' }}>
+            <span aria-hidden="true">✓</span> Bugünün tamamı dolu.
+          </p>
+        ) : (
+          <div className="alan">
+            <div className="flex flex-wrap gap-2">
+              {eksikler.map((m) => (
+                <span
+                  key={m.id}
+                  className="rozet"
+                  style={{ borderColor: `color-mix(in oklab, var(--p-${m.pillar}) 45%, var(--c-cizgi))` }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="inline-block shrink-0"
+                    style={{ width: 7, height: 7, borderRadius: 2, background: `var(--p-${m.pillar})` }}
+                  />
+                  {m.label}
+                </span>
+              ))}
+            </div>
+            <button type="button" className="dugme w-full mt-3" onClick={() => git('bugun')}>
+              Eksikleri doldur
+            </button>
           </div>
         )}
       </Kart>
