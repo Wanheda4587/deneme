@@ -102,6 +102,8 @@ export interface Settings {
   tema: 'dark' | 'light'
   olcumHedefleri: OlcumHedefi[]
   mikroHedefler: MikroHedef[]
+  /** Son değişiklik zamanı — senkronda hangi cihazın ayarı kazanacağını belirler. */
+  guncellendi?: string
 }
 
 export interface Backup {

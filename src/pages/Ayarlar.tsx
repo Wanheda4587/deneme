@@ -6,6 +6,7 @@ import { METRIKLER, SUTUNLAR, sutununMetrikleri } from '../lib/metrics.ts'
 import { bugun as bugunIso, gunEkle, uzunTarih } from '../lib/date.ts'
 import { demoUret } from '../lib/demo.ts'
 import { useStore } from '../state/store.tsx'
+import { SenkronKarti } from '../components/SenkronKarti.tsx'
 
 // Demo verisinin gün sayısı — bugün kampın kaçıncı günü sayılacağını da belirler.
 const DEMO_GUN = 14
@@ -14,7 +15,7 @@ export function Ayarlar() {
   const { ayarlar, gunler, haftalar, ayarGuncelle, disaAktar, iceAktar, hepsiniSil, topluYukle } =
     useStore()
   const [mesaj, setMesaj] = useState<string | null>(null)
-  const [onay, setOnay] = useState<'sil' | null>(null)
+  const [onay, setOnay] = useState<'sil' | 'demo' | null>(null)
   const dosyaRef = useRef<HTMLInputElement>(null)
 
   const gizli = new Set(ayarlar.gizliMetrikler)
@@ -63,6 +64,8 @@ export function Ayarlar() {
       {mesaj && (
         <p className="kart p-3 text-sm" role="status">{mesaj}</p>
       )}
+
+      <SenkronKarti />
 
       {/* Kamp takvimi */}
       <Kart baslik="Kamp takvimi" ikon="🗓️">
@@ -178,6 +181,22 @@ export function Ayarlar() {
         </div>
 
         <div className="alan flex flex-col gap-2">
+          {gunler.size > 0 && onay !== 'demo' ? (
+            <>
+              <button
+                type="button"
+                className="dugme dugme-tehlike self-start"
+                onClick={() => setOnay('demo')}
+              >
+                🧪 Demo verisi yükle
+              </button>
+              <p className="text-xs" style={{ color: 'var(--d-kotu)' }}>
+                ⚠️ Bu cihazda <strong>{gunler.size} günlük</strong> kaydın var. Demo verisi
+                bunların üstüne yazar ve kamp başlangıç tarihini geriye alır. Gerçek veri
+                giriyorsan bu düğmeye basma.
+              </p>
+            </>
+          ) : (
           <button
             type="button"
             className="dugme self-start"
@@ -201,6 +220,7 @@ export function Ayarlar() {
                 bugunIso(), DEMO_GUN, yeniBaslangic, ayarlar.kampGunSayisi,
               )
               await topluYukle(g, h)
+              setOnay(null)
               bildir(
                 `${g.length} günlük demo verisi yüklendi. Kamp başlangıcı geçici olarak ` +
                   `${uzunTarih(yeniBaslangic)} yapıldı — gerçek tarihin ${uzunTarih(eskiBaslangic)} idi, ` +
@@ -208,8 +228,14 @@ export function Ayarlar() {
               )
             }}
           >
-            🧪 Demo verisi yükle ({DEMO_GUN} gün)
+            🧪 {onay === 'demo' ? 'Evet, üstüne yaz' : `Demo verisi yükle (${DEMO_GUN} gün)`}
           </button>
+          )}
+          {onay === 'demo' && (
+            <button type="button" className="dugme self-start" onClick={() => setOnay(null)}>
+              Vazgeç
+            </button>
+          )}
           <p className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
             Grafikleri boş ekranda değil gerçek şekliyle görmek için. Kendi verinin üstüne yazar ve
             kamp başlangıç tarihini geriye alır — önce yedek al.

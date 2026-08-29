@@ -26,10 +26,31 @@ kaynak kodunu içerir ve herkese açıktır.
 tutulur — sunucuya gitmez, başka bir cihaza kendiliğinden geçmez. Cihazlar arasında
 taşımak için Ayarlar ekranındaki JSON dışa/içe aktarma kullanılır.
 
-Depolama katmanı bir adaptör arayüzünün (`src/lib/storage/adapter.ts`) arkasındadır;
-ileride Supabase adaptörü eklendiğinde cihazlar arası gerçek senkron devreye girecek
-ve arayüz ekranlarında değişiklik gerekmeyecek. Supabase anahtarları da koda
-gömülmeyecek, uygulama içinden girilecek.
+### Cihazlar arası senkron (isteğe bağlı)
+
+Ayarlar → **Cihazlar arası senkron** ile Supabase bağlanabilir. Bağlandığında telefon ve
+bilgisayar aynı veriyi görür.
+
+Kurulum (bir kerelik):
+
+1. [supabase.com](https://supabase.com)'da ücretsiz hesap aç, yeni proje oluştur.
+2. Bu depodaki [`supabase-kurulum.sql`](./supabase-kurulum.sql) dosyasının tamamını
+   Supabase → **SQL Editor**'e yapıştırıp çalıştır.
+3. **Project Settings → API**'den *Project URL* ve *anon public* anahtarını kopyala.
+4. Uygulamada Ayarlar → Cihazlar arası senkron → yapıştır → **Bağlan**.
+5. E-postanla giriş yap (altı haneli kod gelir). **Her iki cihazda aynı e-postayı kullan.**
+
+Mimari: yerel depo ana kaynak olmaya devam eder — uygulama her zaman yerelden okur ve
+yerele yazar, internetsizken tam çalışır. Senkron bunun üstüne biner; çakışmalarda kayıt
+bazında *daha yeni yazan kazanır* (`updatedAt` karşılaştırması). Değişiklikler yazmadan
+birkaç saniye sonra, uygulama açılışında ve sekmeye/uygulamaya geri dönüldüğünde otomatik
+gönderilir.
+
+Güvenlik: Veriler satır bazlı güvenlik (RLS) ile korunur — her kullanıcı yalnızca kendi
+satırlarını okuyup yazabilir. Supabase anahtarları **koda gömülmez**, uygulama içinden
+girilir ve yalnızca o cihazın tarayıcısında saklanır.
+
+Senkron birleştirme mantığının testleri: `npm test`
 
 ## Hedefler
 

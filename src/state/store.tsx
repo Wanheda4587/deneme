@@ -10,9 +10,19 @@ import {
 import type { ReactNode } from 'react'
 import type { Backup, DayEntry, Settings, WeekEntry } from '../lib/types.ts'
 import { depo, VARSAYILAN_AYARLAR } from '../lib/storage/index.ts'
+import { baglantiOku } from '../lib/senkron/ayar.ts'
+import { oturum } from '../lib/senkron/istemci.ts'
+import { senkronEt, uzaktakiniSil } from '../lib/senkron/senkron.ts'
 import { bugun } from '../lib/date.ts'
 
+export type SenkronDurumu = 'kapali' | 'girisGerekli' | 'hazir' | 'calisiyor' | 'hata'
+
 interface StoreCtx {
+  senkronDurumu: SenkronDurumu
+  sonSenkron: string | null
+  senkronHatasi: string | null
+  senkronla: (elle?: boolean) => Promise<void>
+  senkronDurumunuTazele: () => Promise<void>
   hazir: boolean
   gunler: Map<string, DayEntry>
   haftalar: Map<string, WeekEntry>
@@ -40,6 +50,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const ayarlarRef = useRef<Settings>(VARSAYILAN_AYARLAR)
   const [kaydediliyor, setKaydediliyor] = useState(false)
   const [hata, setHata] = useState<string | null>(null)
+  const [senkronDurumu, setSenkronDurumu] = useState<SenkronDurumu>('kapali')
+  const [sonSenkron, setSonSenkron] = useState<string | null>(null)
+  const [senkronHatasi, setSenkronHatasi] = useState<string | null>(null)
+  // Senkronun kendi yazdığı veri yeni bir senkron tetiklemesin
+  const senkronKilidi = useRef(false)
+  const senkronZamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // senkronla aşağıda tanımlanıyor; güncelleyiciler ondan önce geldiği için
+  // ref üzerinden çağrılır ve sıralama bağımlılığı kırılır.
+  const senkronlaRef = useRef<(elle?: boolean) => Promise<void>>(async () => {})
+
+  /** Yazmadan sonra gecikmeli senkron — her tuş vuruşunda ağ isteği atılmasın. */
+  const senkronuPlanla = useCallback(() => {
+    if (!baglantiOku()) return
+    if (senkronZamanlayici.current) clearTimeout(senkronZamanlayici.current)
+    senkronZamanlayici.current = setTimeout(() => {
+      void senkronlaRef.current()
+    }, 4000)
+  }, [])
 
   // Bekleyen yazmalar: aynı kayda arka arkaya yazılırsa tek yazmaya iner.
   const bekleyenGun = useRef<Map<string, DayEntry>>(new Map())
@@ -122,8 +150,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return harita
       })
       yazmayiPlanla()
+      senkronuPlanla()
     },
-    [yazmayiPlanla],
+    [yazmayiPlanla, senkronuPlanla],
   )
 
   const haftaGuncelle = useCallback(
@@ -142,20 +171,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return harita
       })
       yazmayiPlanla()
+      senkronuPlanla()
     },
-    [yazmayiPlanla],
+    [yazmayiPlanla, senkronuPlanla],
   )
 
   // Yan etki güncelleyicinin dışında: React güncelleyiciyi birden çok kez
   // çağırabilir, kaydetme bir kez olmalı.
   const ayarGuncelle = useCallback(
     (yama: Partial<Settings>) => {
-      const yeni = { ...ayarlarRef.current, ...yama }
+      const yeni = { ...ayarlarRef.current, ...yama, guncellendi: new Date().toISOString() }
       ayarlarRef.current = yeni
       setAyarlar(yeni)
       void depo().ayarlariKaydet(yeni)
+      senkronuPlanla()
     },
-    [],
+    [senkronuPlanla],
   )
 
   const disaAktar = useCallback(async () => {
@@ -173,7 +204,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ayarlarRef.current = yeniAyarlar
   }, [])
 
+  /** Bağlantı ve oturum durumuna göre senkronun kullanılabilirliğini belirler. */
+  const senkronDurumunuTazele = useCallback(async () => {
+    if (!baglantiOku()) {
+      setSenkronDurumu('kapali')
+      return
+    }
+    try {
+      const o = await oturum()
+      setSenkronDurumu(o ? 'hazir' : 'girisGerekli')
+    } catch {
+      setSenkronDurumu('girisGerekli')
+    }
+  }, [])
+
+  const senkronla = useCallback(async (elle = false) => {
+    if (!baglantiOku()) return
+    if (senkronKilidi.current) return
+    senkronKilidi.current = true
+    setSenkronDurumu('calisiyor')
+    try {
+      const d = depo()
+      // Bekleyen yazmalar diske inmeden gönderilmesin
+      if (zamanlayici.current) clearTimeout(zamanlayici.current)
+      await bekleyenleriYaz()
+
+      const yerel = await d.tumunuDisaAktar()
+      const { birlesik, sonuc } = await senkronEt(yerel)
+      await d.tumunuIceAktar(birlesik)
+
+      setGunler(new Map(birlesik.days.map((x) => [x.date, x])))
+      setHaftalar(new Map(birlesik.weeks.map((x) => [x.weekStart, x])))
+      setAyarlar(birlesik.settings)
+      ayarlarRef.current = birlesik.settings
+
+      setSonSenkron(sonuc.zaman)
+      setSenkronHatasi(null)
+      setSenkronDurumu('hazir')
+    } catch (e) {
+      const mesaj = e instanceof Error ? e.message : 'Senkron başarısız.'
+      setSenkronHatasi(mesaj)
+      // Oturum yoksa kullanıcıyı girişe yönlendir, hata olarak gösterme
+      setSenkronDurumu(mesaj.includes('Oturum') ? 'girisGerekli' : 'hata')
+      if (elle) console.warn('Senkron hatası:', e)
+    } finally {
+      senkronKilidi.current = false
+    }
+  }, [bekleyenleriYaz])
+
+  senkronlaRef.current = senkronla
+
   const hepsiniSil = useCallback(async () => {
+    if (baglantiOku()) {
+      try {
+        await uzaktakiniSil()
+      } catch {
+        // Bulut silinemezse yerel silme yine de yapılır; bir sonraki
+        // senkronda bulut verisi geri gelir — kullanıcı uyarılır.
+        setSenkronHatasi('Buluttaki kayıtlar silinemedi. Bağlantıyı kontrol edip tekrar dene.')
+      }
+    }
     await depo().hepsiniSil()
     setGunler(new Map())
     setHaftalar(new Map())
@@ -200,6 +290,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  // Açılışta senkron durumunu belirle ve bağlıysa bir kez senkronla
+  useEffect(() => {
+    if (!hazir) return
+    void (async () => {
+      await senkronDurumunuTazele()
+      if (baglantiOku()) void senkronla()
+    })()
+  }, [hazir, senkronDurumunuTazele, senkronla])
+
+  // Sekmeye/uygulamaya dönünce diğer cihazın yazdıklarını çek
+  useEffect(() => {
+    if (!hazir) return
+    const donunce = () => {
+      if (document.visibilityState === 'visible' && baglantiOku()) void senkronla()
+    }
+    document.addEventListener('visibilitychange', donunce)
+    window.addEventListener('online', donunce)
+    return () => {
+      document.removeEventListener('visibilitychange', donunce)
+      window.removeEventListener('online', donunce)
+    }
+  }, [hazir, senkronla])
+
   // Tema kökteki data-theme'e yazılır; CSS oradan okur.
   useEffect(() => {
     document.documentElement.dataset.theme = ayarlar.tema
@@ -214,6 +327,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ayarlar,
       kaydediliyor,
       hata,
+      senkronDurumu,
+      sonSenkron,
+      senkronHatasi,
+      senkronla,
+      senkronDurumunuTazele,
       gunGuncelle,
       haftaGuncelle,
       ayarGuncelle,
@@ -224,6 +342,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       hazir, gunler, haftalar, ayarlar, kaydediliyor, hata,
+      senkronDurumu, sonSenkron, senkronHatasi, senkronla, senkronDurumunuTazele,
       gunGuncelle, haftaGuncelle, ayarGuncelle, disaAktar, iceAktar, hepsiniSil, topluYukle,
     ],
   )

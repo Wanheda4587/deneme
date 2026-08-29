@@ -1,12 +1,13 @@
 {
   "name": "doksan-gun-kampi",
   "version": "0.1.0",
-  "description": "90 günlük kişisel gelişim kampı takip uygulaması",
+  "description": "90 g\u00fcnl\u00fck ki\u015fisel geli\u015fim kamp\u0131 takip uygulamas\u0131",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types src/lib/senkron/senkron.test.mts"
   },
   "repository": {
     "type": "git",
@@ -17,6 +18,7 @@
   },
   "homepage": "https://github.com/Wanheda4587/deneme#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1"
