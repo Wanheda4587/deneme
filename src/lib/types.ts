@@ -34,6 +34,9 @@ export interface DayEntry {
   gelirVerimi?: number // %0-100
   gelirNotu?: string
 
+  /** Özel mikro hedeflerin o günkü işareti: hedef id → yapıldı mı. */
+  ozelHedefler?: Record<string, boolean>
+
   gunNotu?: string
   updatedAt: string
 
@@ -85,14 +88,44 @@ export type MikroTur = 'toplam' | 'ortalama' | 'gun'
 /** Hedefin altına düşmemek mi, üstüne çıkmamak mı. */
 export type MikroYon = 'enAz' | 'enFazla'
 
-/** Haftalık somut hedef: "bu hafta 300 dk kitap oku" gibi. */
+/** Hedefin neye bağlı olduğu. */
+export type MikroKaynak = 'metrik' | 'ozel'
+
+/** Süre dolduktan sonra kullanıcının verdiği karar. */
+export type MikroSonuc = 'basarili' | 'basarisiz'
+
+/**
+ * Belirli bir süre için konan somut hedef.
+ * İki türü var:
+ *  - metrik: mevcut bir günlük metriğe bağlı, değeri otomatik hesaplanır
+ *  - ozel:   kullanıcının yazdığı serbest hedef, gün gün evet/hayır işaretlenir
+ */
 export interface MikroHedef {
   id: string
-  metrikId: string
+  kaynak: MikroKaynak
+
+  /** kaynak === 'metrik' iken dolu. */
+  metrikId?: string
+  /** kaynak === 'ozel' iken dolu — kullanıcının kendi yazdığı başlık. */
+  baslik?: string
+
+  /** Metrik hedefinde ölçü değeri, özel hedefte "kaç gün" hedefi. */
   hedef: number
   tur: MikroTur
   yon: MikroYon
   aktif: boolean
+
+  /** Hedefin başladığı gün (YYYY-MM-DD). */
+  baslangic: string
+  /** Kaç gün sürecek. Bitiş = baslangic + gunSayisi - 1. */
+  gunSayisi: number
+
+  /** Süre dolduktan sonra kullanıcının girdiği sonuç. */
+  sonuc?: MikroSonuc
+  sonucNotu?: string
+
+  /** Uzatma zinciri: bu hedef hangi hedefin devamı olarak açıldı. */
+  oncekiId?: string
 }
 
 export interface Settings {

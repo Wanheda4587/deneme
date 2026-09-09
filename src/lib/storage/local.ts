@@ -1,13 +1,14 @@
 // Faz 1 deposu: her şey tarayıcının localStorage'ında tek bir JSON içinde.
 // Veri yalnızca bu cihazda kalır; repoya veya bir sunucuya gitmez.
-import type { Backup, DayEntry, Settings, WeekEntry } from '../types.ts'
+import type { Backup, DayEntry, MikroHedef, Settings, WeekEntry } from '../types.ts'
+import { bugun, haftaBasi } from '../date.ts'
 import type { StorageAdapter } from './adapter.ts'
 import { VARSAYILAN_AYARLAR } from './adapter.ts'
 
 const ANAHTAR = 'kamp90:v1'
 
 /** Şema sürümü. Göçlerin bir kez çalışmasını sağlar. */
-const SEMA_SURUMU = 3
+const SEMA_SURUMU = 4
 
 interface Depo {
   surum?: number
@@ -56,6 +57,29 @@ function goc(depo: Depo): boolean {
       }
     }
     degisti = true
+  }
+
+  // Sürüm 4: mikro hedefler haftalık olmaktan çıkıp kendi başlangıç tarihi ve
+  // gün sayısı olan dönemlere geçti; ayrıca metrik dışı ("özel") hedefler eklendi.
+  // Eski hedefler, içinde bulunulan haftanın Pazartesi'sinden başlayan 7 günlük
+  // metrik hedefi olarak devam eder.
+  if (surum < 4) {
+    const buHaftaninBasi = haftaBasi(bugun())
+    for (const h of depo.settings.mikroHedefler ?? []) {
+      const eski = h as Partial<MikroHedef> & { metrikId?: string }
+      if (!eski.kaynak) {
+        eski.kaynak = 'metrik'
+        degisti = true
+      }
+      if (!eski.baslangic) {
+        eski.baslangic = buHaftaninBasi
+        degisti = true
+      }
+      if (!eski.gunSayisi) {
+        eski.gunSayisi = 7
+        degisti = true
+      }
+    }
   }
 
   if (surum < SEMA_SURUMU) {

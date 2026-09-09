@@ -1,48 +1,39 @@
 import { useState } from 'react'
 import { Alan, Kart } from '../components/ui/Kart.tsx'
 import { Sayi } from '../components/ui/Girdiler.tsx'
-import { MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
+import { DurumSatiri, MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
 import { METRIKLER, SUTUN_HARITASI, metrik } from '../lib/metrics.ts'
 import type { MetrikId } from '../lib/metrics.ts'
-import type { MikroHedef, MikroTur, MikroYon } from '../lib/types.ts'
+import type { MikroHedef, MikroSonuc, MikroTur, MikroYon } from '../lib/types.ts'
 import { yeniId } from '../lib/kimlik.ts'
-import { bugun as bugunIso, gunEkle, haftaBasi, kampHaftasi, kisaTarih } from '../lib/date.ts'
-import { varsayilanTur } from '../lib/stats.ts'
+import { bugun as bugunIso, gunEkle, kisaTarih, uzunTarih } from '../lib/date.ts'
+import { mikroDurum, varsayilanTur } from '../lib/stats.ts'
+import type { MikroDurum } from '../lib/stats.ts'
 import { useStore } from '../state/store.tsx'
 
 const TUR_ETIKETI: Record<MikroTur, string> = {
-  toplam: 'Haftalık toplam',
-  ortalama: 'Haftalık ortalama',
+  toplam: 'Dönem toplamı',
+  ortalama: 'Dönem ortalaması',
   gun: 'Kaç gün yaptım',
 }
 
 const TUR_ACIKLAMA: Record<MikroTur, string> = {
-  toplam: 'Hafta boyunca girdiklerin toplanır. Süreler için doğru seçim.',
-  ortalama: 'Hafta boyunca girdiklerin ortalaması alınır. Puanlar için doğru seçim.',
+  toplam: 'Dönem boyunca girdiklerin toplanır. Süreler için doğru seçim.',
+  ortalama: 'Dönem boyunca girdiklerin ortalaması alınır. Puanlar için doğru seçim.',
   gun: 'O metriği sıfırdan büyük girdiğin gün sayısı sayılır.',
 }
 
-/** Hedef değerini birimiyle yazar; yüzde Türkçedeki gibi başa gelir. */
-function hedefYazisi(
-  tur: MikroTur,
-  tip: string,
-  birim: string | undefined,
-  deger: number,
-): string {
-  if (tur === 'gun') return `${deger} gün`
-  if (tip === 'percent') return `%${deger}`
-  return birim ? `${deger} ${birim}` : String(deger)
-}
+const HAZIR_SURELER = [7, 15, 30, 60]
 
 export function MikroHedefler() {
-  const { ayarlar, ayarGuncelle } = useStore()
-  const [hafta, setHafta] = useState(() => haftaBasi(bugunIso()))
+  const { gunler, ayarlar, ayarGuncelle } = useStore()
   const [duzenlenen, setDuzenlenen] = useState<string | null>(null)
   const [silinecek, setSilinecek] = useState<string | null>(null)
   const [ekleAcik, setEkleAcik] = useState(false)
+  const [gecmisAcik, setGecmisAcik] = useState(false)
 
-  const { mikroHedefler, kampBaslangic, kampGunSayisi } = ayarlar
-  const haftaNo = kampHaftasi(hafta, kampBaslangic, kampGunSayisi)
+  const bugun = bugunIso()
+  const { mikroHedefler } = ayarlar
 
   const yaz = (id: string, yama: Partial<MikroHedef>) =>
     ayarGuncelle({ mikroHedefler: mikroHedefler.map((h) => (h.id === id ? { ...h, ...yama } : h)) })
@@ -53,202 +44,540 @@ export function MikroHedefler() {
     setDuzenlenen(null)
   }
 
-  const ekle = (metrikId: MetrikId) => {
-    const def = metrik(metrikId)
-    const tur = varsayilanTur(metrikId)
+  const ekle = (yeni: Omit<MikroHedef, 'id'>) => {
     const id = yeniId('mikro')
-    // Makul bir başlangıç hedefi: ölçek metriklerinde 7, yüzdede 75, sürede 150.
-    const varsayilanHedef =
-      tur === 'gun' ? 4 : def.type === 'scale' ? 7 : def.type === 'percent' ? 75 : 150
-    ayarGuncelle({
-      mikroHedefler: [
-        ...mikroHedefler,
-        { id, metrikId, hedef: varsayilanHedef, tur, yon: 'enAz', aktif: true },
-      ],
-    })
+    ayarGuncelle({ mikroHedefler: [...mikroHedefler, { ...yeni, id }] })
     setEkleAcik(false)
     setDuzenlenen(id)
   }
 
-  const kullanilan = new Set(mikroHedefler.map((h) => h.metrikId))
-  // Evet/Hayır metrikleri de hedeflenebilir — 'kaç gün yaptım' olarak ölçülür.
-  const eklenebilir = METRIKLER.filter((m) => !kullanilan.has(m.id))
+  /**
+   * Uzatma: biten hedef olduğu gibi geçmişte kalır, devamı olarak yeni bir
+   * hedef açılır. Böylece hem seri devam eder hem geçmiş bozulmaz.
+   */
+  const uzat = (kaynak: MikroHedef, ekGun: number) => {
+    const yeniBaslangic = gunEkle(kaynak.baslangic, kaynak.gunSayisi)
+    const id = yeniId('mikro')
+    ayarGuncelle({
+      mikroHedefler: [
+        ...mikroHedefler,
+        { ...kaynak, id, baslangic: yeniBaslangic, gunSayisi: ekGun, sonuc: undefined, sonucNotu: undefined, oncekiId: kaynak.id },
+      ],
+    })
+    setDuzenlenen(id)
+  }
+
+  const durumlar = mikroHedefler
+    .map((h) => mikroDurum(h, gunler, bugun))
+    .filter((d): d is MikroDurum => d !== null)
+
+  const sonucBekleyenler = durumlar.filter((d) => d.asama === 'sonucBekliyor')
+  const gecmis = durumlar
+    .filter((d) => d.asama === 'kapandi')
+    .sort((a, b) => b.bitis.localeCompare(a.bitis))
+
+  const kullanilanMetrikler = new Set(
+    mikroHedefler.filter((h) => h.kaynak === 'metrik' && !h.sonuc).map((h) => h.metrikId),
+  )
+  const eklenebilir = METRIKLER.filter((m) => !kullanilanMetrikler.has(m.id))
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Hafta gezinme */}
-      <div className="kart p-3 flex items-center gap-2">
-        <button type="button" className="dugme" aria-label="Önceki hafta" onClick={() => setHafta(gunEkle(hafta, -7))}>‹</button>
-        <div className="flex-1 text-center min-w-0">
-          <div className="text-sm font-semibold">
-            {haftaNo !== null ? `${haftaNo}. hafta` : 'Kamp dışı hafta'}
-          </div>
-          <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
-            {kisaTarih(hafta)} – {kisaTarih(gunEkle(hafta, 6))}
-          </div>
-        </div>
-        <button type="button" className="dugme" aria-label="Sonraki hafta" onClick={() => setHafta(gunEkle(hafta, 7))}>›</button>
-      </div>
+      {/* Süresi dolanlar — sonuç bekliyor */}
+      {sonucBekleyenler.length > 0 && (
+        <Kart
+          baslik="Süresi doldu — sonucu gir"
+          ikon="⏳"
+          sag={<span className="rozet rozet-uyari">{sonucBekleyenler.length}</span>}
+        >
+          {sonucBekleyenler.map((d) => (
+            <SonucFormu
+              key={d.hedef.id}
+              durum={d}
+              onSonuc={(sonuc, not) => yaz(d.hedef.id, { sonuc, sonucNotu: not })}
+              onUzat={(gun) => uzat(d.hedef, gun)}
+            />
+          ))}
+        </Kart>
+      )}
 
-      <Kart baslik="Bu haftaki durum" ikon="🎯">
-        <MikroHedefListesi haftaBasiIso={hafta} />
+      {/* Devam edenler */}
+      <Kart baslik="Devam eden hedefler" ikon="🎯">
+        <MikroHedefListesi bosMesaj="Devam eden hedef yok. Aşağıdan ekleyebilirsin." />
       </Kart>
 
-      {/* Hedef yönetimi */}
+      {/* Yönetim */}
       <Kart baslik="Hedefleri düzenle" ikon="⚙️">
-        {mikroHedefler.length === 0 && (
+        {mikroHedefler.filter((h) => !h.sonuc).length === 0 && (
           <p className="alan text-sm" style={{ color: 'var(--c-ink-3)' }}>
-            Henüz haftalık hedef yok. Aşağıdan ekle — örneğin "haftada 300 dk kitap oku".
+            Henüz hedef yok. Aşağıdan ekle.
           </p>
         )}
 
-        {mikroHedefler.map((h) => {
-          const def = metrik(h.metrikId as MetrikId)
-          if (!def) return null
-          const sutun = SUTUN_HARITASI[def.pillar]
-          const acik = duzenlenen === h.id
-          return (
-            <div key={h.id} className="alan">
-              <div className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="inline-block shrink-0"
-                  style={{ width: 8, height: 8, borderRadius: 2, background: `var(--p-${def.pillar})` }}
-                />
-                <span className="flex-1 min-w-0">
-                  <span className="text-sm font-medium block truncate">{def.label}</span>
-                  <span className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
-                    {h.yon === 'enAz' ? 'en az' : 'en fazla'} {hedefYazisi(h.tur, def.type, def.birim, h.hedef)}
-                    {' · '}{TUR_ETIKETI[h.tur].toLowerCase()}
-                  </span>
-                </span>
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--c-ink-3)' }}>
-                  <input
-                    type="checkbox"
-                    checked={h.aktif}
-                    onChange={(e) => yaz(h.id, { aktif: e.target.checked })}
-                    style={{ width: 16, height: 16, accentColor: `var(--p-${sutun.id})` }}
+        {mikroHedefler
+          .filter((h) => !h.sonuc)
+          .map((h) => {
+            const ozel = h.kaynak === 'ozel'
+            const def = ozel ? null : metrik(h.metrikId as MetrikId)
+            if (!ozel && !def) return null
+            const pillar = ozel ? 'disiplin' : def!.pillar
+            const baslik = ozel ? (h.baslik ?? 'Hedef') : def!.label
+            const acik = duzenlenen === h.id
+            const bitis = gunEkle(h.baslangic, h.gunSayisi - 1)
+
+            return (
+              <div key={h.id} className="alan">
+                <div className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block shrink-0"
+                    style={{ width: 8, height: 8, borderRadius: 2, background: `var(--p-${pillar})` }}
                   />
-                  aktif
-                </label>
-                <button
-                  type="button"
-                  className="dugme px-2 py-1 text-xs"
-                  aria-label={`${def.label} hedefini düzenle`}
-                  aria-pressed={acik}
-                  onClick={() => setDuzenlenen(acik ? null : h.id)}
-                >
-                  ✏️
-                </button>
-              </div>
-
-              {acik && (
-                <div
-                  className="mt-3 rounded-xl p-3 flex flex-col gap-3"
-                  style={{ background: 'var(--c-card-2)', border: '1px solid var(--c-cizgi)' }}
-                >
-                  <div>
-                    <div className="etiket">Nasıl ölçülsün?</div>
-                    <div className="flex flex-wrap gap-2">
-                      {(def.type === 'bool'
-                        ? (['gun'] as MikroTur[])
-                        : (['toplam', 'ortalama', 'gun'] as MikroTur[])
-                      ).map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          className="dugme text-sm"
-                          aria-pressed={h.tur === t}
-                          style={h.tur === t ? { borderColor: `var(--p-${def.pillar})`, color: 'var(--c-ink)' } : undefined}
-                          onClick={() => yaz(h.id, { tur: t })}
-                        >
-                          {TUR_ETIKETI[t]}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="ipucu">{TUR_ACIKLAMA[h.tur]}</p>
-                  </div>
-
-                  <div>
-                    <div className="etiket">Yön</div>
-                    <div className="segment" style={{ ['--sutun-renk' as string]: `var(--p-${def.pillar})` }}>
-                      {(['enAz', 'enFazla'] as MikroYon[]).map((y) => (
-                        <button
-                          key={y}
-                          type="button"
-                          className="segment-dugme"
-                          aria-pressed={h.yon === y}
-                          onClick={() => yaz(h.id, { yon: y })}
-                        >
-                          {y === 'enAz' ? 'En az bu kadar' : 'En fazla bu kadar'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Alan etiket="Haftalık hedef">
-                    <Sayi
-                      deger={h.hedef}
-                      onChange={(v) => yaz(h.id, { hedef: v ?? 0 })}
-                      min={0}
-                      max={h.tur === 'gun' ? 7 : 10000}
-                      adim={h.tur === 'gun' ? 1 : def.type === 'scale' ? 0.5 : 5}
-                      birim={h.tur === 'gun' ? 'gün' : def.birim}
-                      etiketi="Haftalık hedef"
+                  <span className="flex-1 min-w-0">
+                    <span className="text-sm font-medium block truncate">{baslik}</span>
+                    <span className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
+                      {h.yon === 'enAz' ? 'en az' : 'en fazla'}{' '}
+                      {ozel ? `${h.hedef} gün` : hedefYazisi(h.tur, def!.type, def!.birim, h.hedef)}
+                      {' · '}{h.gunSayisi} gün ({kisaTarih(h.baslangic)} – {kisaTarih(bitis)})
+                    </span>
+                  </span>
+                  <label
+                    className="flex items-center gap-1.5 text-xs cursor-pointer"
+                    style={{ color: 'var(--c-ink-3)' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={h.aktif}
+                      onChange={(e) => yaz(h.id, { aktif: e.target.checked })}
+                      style={{ width: 16, height: 16, accentColor: `var(--p-${pillar})` }}
                     />
-                  </Alan>
-
-                  <div className="flex flex-wrap gap-2">
-                    {silinecek === h.id ? (
-                      <>
-                        <span className="text-sm self-center">Bu hedef silinsin mi?</span>
-                        <button type="button" className="dugme dugme-tehlike" onClick={() => sil(h.id)}>Evet, sil</button>
-                        <button type="button" className="dugme" onClick={() => setSilinecek(null)}>Vazgeç</button>
-                      </>
-                    ) : (
-                      <button type="button" className="dugme dugme-tehlike" onClick={() => setSilinecek(h.id)}>
-                        🗑 Sil
-                      </button>
-                    )}
-                  </div>
+                    aktif
+                  </label>
+                  <button
+                    type="button"
+                    className="dugme px-2 py-1 text-xs"
+                    aria-label={`${baslik} hedefini düzenle`}
+                    aria-pressed={acik}
+                    onClick={() => setDuzenlenen(acik ? null : h.id)}
+                  >
+                    ✏️
+                  </button>
                 </div>
-              )}
-            </div>
-          )
-        })}
+
+                {acik && (
+                  <div
+                    className="mt-3 rounded-xl p-3 flex flex-col gap-3"
+                    style={{ background: 'var(--c-card-2)', border: '1px solid var(--c-cizgi)' }}
+                  >
+                    {ozel && (
+                      <Alan etiket="Hedefin">
+                        <input
+                          className="girdi"
+                          value={h.baslik ?? ''}
+                          onChange={(e) => yaz(h.id, { baslik: e.target.value })}
+                          aria-label="Hedef başlığı"
+                        />
+                      </Alan>
+                    )}
+
+                    {!ozel && (
+                      <div>
+                        <div className="etiket">Nasıl ölçülsün?</div>
+                        <div className="flex flex-wrap gap-2">
+                          {(def!.type === 'bool'
+                            ? (['gun'] as MikroTur[])
+                            : (['toplam', 'ortalama', 'gun'] as MikroTur[])
+                          ).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              className="dugme text-sm"
+                              aria-pressed={h.tur === t}
+                              style={h.tur === t ? { borderColor: `var(--p-${pillar})`, color: 'var(--c-ink)' } : undefined}
+                              onClick={() => yaz(h.id, { tur: t })}
+                            >
+                              {TUR_ETIKETI[t]}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="ipucu">{TUR_ACIKLAMA[h.tur]}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="etiket">Yön</div>
+                      <div className="segment" style={{ ['--sutun-renk' as string]: `var(--p-${pillar})` }}>
+                        {(['enAz', 'enFazla'] as MikroYon[]).map((y) => (
+                          <button
+                            key={y}
+                            type="button"
+                            className="segment-dugme"
+                            aria-pressed={h.yon === y}
+                            onClick={() => yaz(h.id, { yon: y })}
+                          >
+                            {y === 'enAz' ? 'En az bu kadar' : 'En fazla bu kadar'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Alan etiket={ozel ? 'Kaç gün yapmalısın?' : 'Dönem hedefi'}>
+                      <Sayi
+                        deger={h.hedef}
+                        onChange={(v) => yaz(h.id, { hedef: v ?? 0 })}
+                        min={0}
+                        max={ozel || h.tur === 'gun' ? h.gunSayisi : 10000}
+                        adim={ozel || h.tur === 'gun' ? 1 : def!.type === 'scale' ? 0.5 : 5}
+                        birim={ozel || h.tur === 'gun' ? 'gün' : def!.birim}
+                        etiketi="Dönem hedefi"
+                      />
+                    </Alan>
+
+                    <SureSecici
+                      gunSayisi={h.gunSayisi}
+                      baslangic={h.baslangic}
+                      onGun={(g) => yaz(h.id, { gunSayisi: g })}
+                      onBaslangic={(b) => yaz(h.id, { baslangic: b })}
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                      {silinecek === h.id ? (
+                        <>
+                          <span className="text-sm self-center">Bu hedef silinsin mi?</span>
+                          <button type="button" className="dugme dugme-tehlike" onClick={() => sil(h.id)}>Evet, sil</button>
+                          <button type="button" className="dugme" onClick={() => setSilinecek(null)}>Vazgeç</button>
+                        </>
+                      ) : (
+                        <button type="button" className="dugme dugme-tehlike" onClick={() => setSilinecek(h.id)}>
+                          🗑 Sil
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
         <div className="alan">
           {ekleAcik ? (
-            <div className="flex flex-col gap-2">
-              <div className="etiket">Hangi metriğe hedef koyalım?</div>
-              <div className="flex flex-wrap gap-2">
-                {eklenebilir.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className="dugme text-sm"
-                    onClick={() => ekle(m.id)}
-                  >
-                    <span aria-hidden="true">{SUTUN_HARITASI[m.pillar].ikon}</span> {m.label}
-                  </button>
-                ))}
-              </div>
-              {eklenebilir.length === 0 && (
-                <p className="text-sm" style={{ color: 'var(--c-ink-3)' }}>
-                  Tüm uygun metriklere hedef koyulmuş.
-                </p>
-              )}
-              <button type="button" className="dugme self-start" onClick={() => setEkleAcik(false)}>
-                Vazgeç
-              </button>
-            </div>
+            <YeniHedefFormu
+              eklenebilir={eklenebilir}
+              onEkle={ekle}
+              onVazgec={() => setEkleAcik(false)}
+            />
           ) : (
             <button type="button" className="dugme dugme-vurgu w-full" onClick={() => setEkleAcik(true)}>
-              + Haftalık hedef ekle
+              + Hedef ekle
             </button>
           )}
         </div>
       </Kart>
+
+      {/* Geçmiş */}
+      <Kart
+        baslik="Geçmiş hedefler"
+        ikon="📚"
+        sag={
+          <span className="flex items-center gap-2">
+            <span className="rakam text-xs" style={{ color: 'var(--c-ink-3)' }}>
+              {gecmis.length}
+            </span>
+            {gecmis.length > 0 && (
+              <button
+                type="button"
+                className="dugme px-2 py-1 text-xs"
+                aria-expanded={gecmisAcik}
+                onClick={() => setGecmisAcik((o) => !o)}
+              >
+                {gecmisAcik ? 'gizle' : 'göster'}
+              </button>
+            )}
+          </span>
+        }
+      >
+        {gecmis.length === 0 ? (
+          <p className="alan text-sm" style={{ color: 'var(--c-ink-3)' }}>
+            Tamamlanmış hedef yok. Süresi dolan hedeflerin sonucunu girdikçe burada birikecek.
+          </p>
+        ) : gecmisAcik ? (
+          <>
+            {gecmis.map((d) => (
+              <div key={d.hedef.id}>
+                <DurumSatiri durum={d} />
+                {d.hedef.sonucNotu && (
+                  <p className="px-4 pb-3 text-xs" style={{ color: 'var(--c-ink-3)' }}>
+                    “{d.hedef.sonucNotu}”
+                  </p>
+                )}
+                <div className="px-4 pb-3">
+                  <button
+                    type="button"
+                    className="dugme text-xs"
+                    onClick={() => uzat(d.hedef, d.hedef.gunSayisi)}
+                  >
+                    ↻ Aynısını {d.hedef.gunSayisi} gün daha aç
+                  </button>
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          <p className="alan text-sm" style={{ color: 'var(--c-ink-3)' }}>
+            {gecmis.filter((d) => d.hedef.sonuc === 'basarili').length} başarılı ·{' '}
+            {gecmis.filter((d) => d.hedef.sonuc === 'basarisiz').length} başarısız
+          </p>
+        )}
+      </Kart>
+    </div>
+  )
+}
+
+/** Hedef değerini birimiyle yazar; yüzde Türkçedeki gibi başa gelir. */
+function hedefYazisi(tur: MikroTur, tip: string, birim: string | undefined, deger: number): string {
+  if (tur === 'gun') return `${deger} gün`
+  if (tip === 'percent') return `%${deger}`
+  return birim ? `${deger} ${birim}` : String(deger)
+}
+
+/** Süre ve başlangıç seçimi — hazır süreler artı serbest giriş. */
+function SureSecici({
+  gunSayisi,
+  baslangic,
+  onGun,
+  onBaslangic,
+}: {
+  gunSayisi: number
+  baslangic: string
+  onGun: (g: number) => void
+  onBaslangic: (b: string) => void
+}) {
+  return (
+    <div>
+      <div className="etiket">Süre</div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {HAZIR_SURELER.map((g) => (
+          <button
+            key={g}
+            type="button"
+            className="dugme text-sm"
+            aria-pressed={gunSayisi === g}
+            style={gunSayisi === g ? { borderColor: 'var(--c-ink-3)', color: 'var(--c-ink)' } : undefined}
+            onClick={() => onGun(g)}
+          >
+            {g} gün
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <label className="flex-1 min-w-32">
+          <span className="text-xs block mb-1" style={{ color: 'var(--c-ink-3)' }}>Gün sayısı</span>
+          <Sayi
+            deger={gunSayisi}
+            onChange={(v) => onGun(Math.max(v ?? 1, 1))}
+            min={1}
+            max={365}
+            adim={1}
+            birim="gün"
+            etiketi="Gün sayısı"
+          />
+        </label>
+        <label className="flex-1 min-w-40">
+          <span className="text-xs block mb-1" style={{ color: 'var(--c-ink-3)' }}>Başlangıç</span>
+          <input
+            type="date"
+            className="girdi"
+            value={baslangic}
+            aria-label="Başlangıç tarihi"
+            onChange={(e) => e.target.value && onBaslangic(e.target.value)}
+          />
+        </label>
+      </div>
+      <p className="ipucu">
+        Bitiş: {uzunTarih(gunEkle(baslangic, Math.max(gunSayisi, 1) - 1))}
+      </p>
+    </div>
+  )
+}
+
+/** Süresi dolan hedef için sonuç girme ve uzatma. */
+function SonucFormu({
+  durum,
+  onSonuc,
+  onUzat,
+}: {
+  durum: MikroDurum
+  onSonuc: (sonuc: MikroSonuc, not: string) => void
+  onUzat: (gun: number) => void
+}) {
+  const [not, setNot] = useState('')
+  return (
+    <div className="alan">
+      <DurumSatiri durum={durum} />
+      <div className="mt-2 rounded-xl p-3" style={{ background: 'var(--c-card-2)' }}>
+        <div className="etiket">Bu hedefte başarılı oldun mu?</div>
+        <textarea
+          className="girdi mb-2"
+          rows={2}
+          value={not}
+          placeholder="Kısa bir not (isteğe bağlı)"
+          aria-label="Sonuç notu"
+          onChange={(e) => setNot(e.target.value)}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="dugme flex-1"
+            style={{ borderColor: 'color-mix(in oklab, var(--d-iyi) 50%, var(--c-cizgi))', color: 'var(--d-iyi)' }}
+            onClick={() => onSonuc('basarili', not)}
+          >
+            ✓ Başardım
+          </button>
+          <button
+            type="button"
+            className="dugme flex-1"
+            style={{ borderColor: 'color-mix(in oklab, var(--d-kotu) 50%, var(--c-cizgi))', color: 'var(--d-kotu)' }}
+            onClick={() => onSonuc('basarisiz', not)}
+          >
+            ✕ Başaramadım
+          </button>
+          <button type="button" className="dugme" onClick={() => onUzat(durum.hedef.gunSayisi)}>
+            ↻ {durum.hedef.gunSayisi} gün uzat
+          </button>
+        </div>
+        <p className="ipucu">
+          Uzatınca bu dönem geçmişe kaydedilir ve devamı yeni bir hedef olarak açılır.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** Yeni hedef: metrikten seç ya da kendi hedefini yaz. */
+function YeniHedefFormu({
+  eklenebilir,
+  onEkle,
+  onVazgec,
+}: {
+  eklenebilir: typeof METRIKLER
+  onEkle: (h: Omit<MikroHedef, 'id'>) => void
+  onVazgec: () => void
+}) {
+  const [kaynak, setKaynak] = useState<'metrik' | 'ozel' | null>(null)
+  const [baslik, setBaslik] = useState('')
+  const [gunSayisi, setGunSayisi] = useState(15)
+  const [baslangic, setBaslangic] = useState(bugunIso())
+
+  if (kaynak === null) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="etiket">Ne tür bir hedef?</div>
+        <button type="button" className="dugme" onClick={() => setKaynak('metrik')}>
+          📊 Takip ettiğim bir metriğe hedef koy
+        </button>
+        <button type="button" className="dugme" onClick={() => setKaynak('ozel')}>
+          ✍️ Kendi hedefimi yazayım
+        </button>
+        <p className="ipucu">
+          Kendi hedefini yazarsan gün gün “yaptım / yapmadım” diye işaretlersin.
+        </p>
+        <button type="button" className="dugme self-start" onClick={onVazgec}>Vazgeç</button>
+      </div>
+    )
+  }
+
+  if (kaynak === 'metrik') {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="etiket">Hangi metriğe hedef koyalım?</div>
+        <div className="flex flex-wrap gap-2">
+          {eklenebilir.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className="dugme text-sm"
+              onClick={() =>
+                onEkle({
+                  kaynak: 'metrik',
+                  metrikId: m.id,
+                  hedef:
+                    varsayilanTur(m.id) === 'gun'
+                      ? Math.max(Math.round(gunSayisi * 0.6), 1)
+                      : m.type === 'scale'
+                        ? 7
+                        : m.type === 'percent'
+                          ? 75
+                          : 150,
+                  tur: varsayilanTur(m.id),
+                  yon: 'enAz',
+                  aktif: true,
+                  baslangic,
+                  gunSayisi,
+                })
+              }
+            >
+              <span aria-hidden="true">{SUTUN_HARITASI[m.pillar].ikon}</span> {m.label}
+            </button>
+          ))}
+        </div>
+        {eklenebilir.length === 0 && (
+          <p className="text-sm" style={{ color: 'var(--c-ink-3)' }}>
+            Tüm metriklere hedef koyulmuş.
+          </p>
+        )}
+        <SureSecici
+          gunSayisi={gunSayisi}
+          baslangic={baslangic}
+          onGun={setGunSayisi}
+          onBaslangic={setBaslangic}
+        />
+        <button type="button" className="dugme self-start" onClick={() => setKaynak(null)}>Geri</button>
+      </div>
+    )
+  }
+
+  const gecerli = baslik.trim().length > 0
+  return (
+    <div className="flex flex-col gap-3">
+      <Alan etiket="Hedefin ne?" ipucu="Gün gün “yaptım / yapmadım” diye işaretleyeceksin.">
+        <input
+          className="girdi"
+          value={baslik}
+          placeholder="Hedefini kendi cümlenle yaz"
+          aria-label="Hedef başlığı"
+          autoFocus
+          onChange={(e) => setBaslik(e.target.value)}
+        />
+      </Alan>
+      <SureSecici
+        gunSayisi={gunSayisi}
+        baslangic={baslangic}
+        onGun={setGunSayisi}
+        onBaslangic={setBaslangic}
+      />
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="dugme dugme-vurgu flex-1"
+          disabled={!gecerli}
+          onClick={() =>
+            onEkle({
+              kaynak: 'ozel',
+              baslik: baslik.trim(),
+              hedef: gunSayisi,
+              tur: 'gun',
+              yon: 'enAz',
+              aktif: true,
+              baslangic,
+              gunSayisi,
+            })
+          }
+        >
+          Ekle
+        </button>
+        <button type="button" className="dugme" onClick={() => setKaynak(null)}>Geri</button>
+      </div>
+      {!gecerli && <p className="ipucu">Hedefine bir ad ver.</p>}
     </div>
   )
 }

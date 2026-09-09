@@ -85,9 +85,14 @@ export function kampHaftasi(isoStr: string, baslangic: string, toplamGun: number
   return gun === null ? null : Math.ceil(gun / 7)
 }
 
+/** Verilen günden başlayan, n günlük aralık. */
+export function gunAraligi(baslangic: string, gunSayisi: number): string[] {
+  return Array.from({ length: Math.max(gunSayisi, 0) }, (_, i) => gunEkle(baslangic, i))
+}
+
 /** Kampın tüm günleri, sırayla. */
 export function kampGunleri(baslangic: string, toplamGun: number): string[] {
-  return Array.from({ length: toplamGun }, (_, i) => gunEkle(baslangic, i))
+  return gunAraligi(baslangic, toplamGun)
 }
 
 /** Kampın tüm hafta başlangıçları (Pazartesi'ler), sırayla. */

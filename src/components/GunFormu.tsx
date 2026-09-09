@@ -7,7 +7,8 @@ import {
 import type { MetricDef, MetrikId } from '../lib/metrics.ts'
 import { useStore } from '../state/store.tsx'
 import { Alan, Kart } from './ui/Kart.tsx'
-import { MetinAlani, MetrikAlani } from './ui/Girdiler.tsx'
+import { EvetHayir, MetinAlani, MetrikAlani } from './ui/Girdiler.tsx'
+import { gunEkle } from '../lib/date.ts'
 
 /**
  * Bir günün tüm giriş alanları. Bölümler ve alanlar METRİKLER kayıt defterinden
@@ -19,6 +20,16 @@ export function GunFormu({ date }: { date: string }) {
 
   const gizli = new Set(ayarlar.gizliMetrikler)
   const antrenmanaGitti = kayit.antrenman === true
+
+  // Bu güne denk gelen, sonucu henüz girilmemiş özel hedefler
+  const ozelHedefler = ayarlar.mikroHedefler.filter(
+    (h) =>
+      h.kaynak === 'ozel' &&
+      h.aktif &&
+      !h.sonuc &&
+      date >= h.baslangic &&
+      date <= gunEkle(h.baslangic, h.gunSayisi - 1),
+  )
 
   const metinAlani = (id: (typeof METIN_ALANLARI)[number]['id']) =>
     METIN_ALANLARI.find((a) => a.id === id)!
@@ -84,6 +95,29 @@ export function GunFormu({ date }: { date: string }) {
           </Kart>
         )
       })}
+
+      {/* O gün süresi devam eden özel hedefler — gün gün işaretlenir */}
+      {ozelHedefler.length > 0 && (
+        <Kart baslik="Kendi hedeflerin" ikon="✍️" pillar="disiplin">
+          {ozelHedefler.map((h) => {
+            const isaret = kayit.ozelHedefler?.[h.id]
+            return (
+              <Alan key={h.id} etiket={h.baslik ?? 'Hedef'}>
+                <EvetHayir
+                  deger={isaret}
+                  onChange={(v) => {
+                    const mevcut = { ...(kayit.ozelHedefler ?? {}) }
+                    if (v === undefined) delete mevcut[h.id]
+                    else mevcut[h.id] = v
+                    gunGuncelle(date, { ozelHedefler: mevcut })
+                  }}
+                  etiketi={h.baslik ?? 'Hedef'}
+                />
+              </Alan>
+            )
+          })}
+        </Kart>
+      )}
 
       <Kart baslik="Gün notu" ikon="📝">
         <Alan etiket="Bugün nasıl geçti?">

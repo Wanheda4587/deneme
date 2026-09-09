@@ -124,8 +124,8 @@ export function Hafta() {
       )}
 
       {/* Bu haftanın mikro hedefleri */}
-      <Kart baslik="Bu haftanın hedefleri" ikon="🎯">
-        <MikroHedefListesi haftaBasiIso={hafta} />
+      <Kart baslik="Devam eden hedefler" ikon="🎯">
+        <MikroHedefListesi />
       </Kart>
 
       {/* Otomatik özet — girilmez, hesaplanır */}

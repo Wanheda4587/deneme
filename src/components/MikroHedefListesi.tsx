@@ -1,15 +1,33 @@
 import { IlerlemeCubugu, sutunRengi } from './ui/Kart.tsx'
-import { bugun as bugunIso } from '../lib/date.ts'
+import { bugun as bugunIso, kisaTarih } from '../lib/date.ts'
 import { mikroBicim, mikroDurum } from '../lib/stats.ts'
 import type { MikroDurum } from '../lib/stats.ts'
 import { useStore } from '../state/store.tsx'
 
-function DurumSatiri({ durum }: { durum: MikroDurum }) {
-  const { def, hedef, simdi, kalan, oran, tamam, kalanGun, gunlukGereken } = durum
-  const renk = sutunRengi(def.pillar)
+export function DurumSatiri({
+  durum,
+  tarihGoster = true,
+}: {
+  durum: MikroDurum
+  tarihGoster?: boolean
+}) {
+  const { hedef, baslik, pillar, simdi, kalan, oran, tamam, kalanGun, gunlukGereken, bitis, asama } =
+    durum
+  const renk = sutunRengi(pillar)
   const enFazla = hedef.yon === 'enFazla'
   // "En fazla" hedefinde bütçe aşımı kötüdür; "en az" hedefinde hedefi aşmak iyidir.
   const asildi = enFazla && simdi > hedef.hedef
+
+  const cubukRengi =
+    hedef.sonuc === 'basarili'
+      ? 'var(--d-iyi)'
+      : hedef.sonuc === 'basarisiz'
+        ? 'var(--d-kotu)'
+        : asildi
+          ? 'var(--d-kotu)'
+          : tamam
+            ? 'var(--d-iyi)'
+            : renk
 
   return (
     <div className="alan">
@@ -20,7 +38,10 @@ function DurumSatiri({ durum }: { durum: MikroDurum }) {
             className="inline-block shrink-0"
             style={{ width: 8, height: 8, borderRadius: 2, background: renk }}
           />
-          <span className="truncate">{def.label}</span>
+          <span className="truncate">{baslik}</span>
+          {hedef.kaynak === 'ozel' && (
+            <span className="rozet shrink-0" style={{ fontSize: '0.6875rem' }}>kendi hedefin</span>
+          )}
         </span>
         <span className="rakam text-sm font-semibold whitespace-nowrap">
           {mikroBicim(durum, simdi)}
@@ -32,13 +53,21 @@ function DurumSatiri({ durum }: { durum: MikroDurum }) {
 
       <IlerlemeCubugu
         oran={Math.min(oran, 1)}
-        renk={asildi ? 'var(--d-kotu)' : tamam ? 'var(--d-iyi)' : renk}
-        etiket={`${def.label} haftalık hedefi`}
+        renk={cubukRengi}
+        etiket={`${baslik} hedefi`}
       />
 
-      <div className="flex items-baseline justify-between gap-2 mt-1.5 text-xs" style={{ color: 'var(--c-ink-3)' }}>
+      <div
+        className="flex items-baseline justify-between gap-2 mt-1.5 text-xs"
+        style={{ color: 'var(--c-ink-3)' }}
+      >
         <span>
-          {asildi ? (
+          {hedef.sonuc ? (
+            <span style={{ color: hedef.sonuc === 'basarili' ? 'var(--d-iyi)' : 'var(--d-kotu)' }}>
+              <span aria-hidden="true">{hedef.sonuc === 'basarili' ? '✓' : '✕'}</span>{' '}
+              {hedef.sonuc === 'basarili' ? 'Başardın' : 'Başaramadın'}
+            </span>
+          ) : asildi ? (
             <span style={{ color: 'var(--d-kotu)' }}>
               <span aria-hidden="true">!</span> {mikroBicim(durum, simdi - hedef.hedef)} aşıldı
             </span>
@@ -51,23 +80,27 @@ function DurumSatiri({ durum }: { durum: MikroDurum }) {
           )}
         </span>
         <span className="rakam">
-          {kalanGun > 0 ? `${kalanGun} gün kaldı` : 'hafta bitti'}
-          {gunlukGereken !== null && kalanGun > 0
-            ? ` · günde ${mikroBicim(durum, Math.ceil(gunlukGereken))}`
-            : ''}
+          {asama === 'devam'
+            ? `bitişe ${kalanGun} gün${
+                gunlukGereken !== null ? ` · günde ${mikroBicim(durum, Math.ceil(gunlukGereken))}` : ''
+              }`
+            : tarihGoster
+              ? `${kisaTarih(hedef.baslangic)} – ${kisaTarih(bitis)}`
+              : 'süre doldu'}
         </span>
       </div>
     </div>
   )
 }
 
-/** Verilen haftanın aktif mikro hedeflerini ilerlemeleriyle listeler. */
+/**
+ * Süresi devam eden mikro hedefleri ilerlemeleriyle listeler.
+ * Biten ve sonucu girilmiş hedefler burada değil, geçmişte görünür.
+ */
 export function MikroHedefListesi({
-  haftaBasiIso,
-  bosMesaj = 'Bu hafta için hedef tanımlanmamış. Mikro Hedefler ekranından ekleyebilirsin.',
+  bosMesaj = 'Şu an devam eden hedef yok. Mikro Hedefler ekranından ekleyebilirsin.',
   enFazla,
 }: {
-  haftaBasiIso: string
   bosMesaj?: string
   enFazla?: number
 }) {
@@ -75,9 +108,11 @@ export function MikroHedefListesi({
   const bugun = bugunIso()
 
   const durumlar = ayarlar.mikroHedefler
-    .filter((h) => h.aktif)
-    .map((h) => mikroDurum(h, haftaBasiIso, gunler, bugun))
+    .filter((h) => h.aktif && !h.sonuc)
+    .map((h) => mikroDurum(h, gunler, bugun))
     .filter((d): d is MikroDurum => d !== null)
+    // Süresi dolup sonuç bekleyenler üstte dursun
+    .sort((a, b) => (a.asama === b.asama ? 0 : a.asama === 'sonucBekliyor' ? -1 : 1))
 
   if (durumlar.length === 0) {
     return (

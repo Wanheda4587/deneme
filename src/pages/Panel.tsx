@@ -154,7 +154,7 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
 
       {/* Bu haftanın hedefleri */}
       <Kart
-        baslik="Bu haftanın hedefleri"
+        baslik="Devam eden hedefler"
         ikon="🎯"
         sag={
           <button type="button" className="dugme px-2 py-1 text-xs" onClick={() => git('mikro')}>
@@ -163,9 +163,8 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
         }
       >
         <MikroHedefListesi
-          haftaBasiIso={buHafta}
           enFazla={4}
-          bosMesaj="Bu hafta için hedef yok. Örneğin “haftada 300 dk kitap” koyabilirsin."
+          bosMesaj="Devam eden hedef yok. Mikro Hedefler ekranından ekleyebilirsin."
         />
       </Kart>
 

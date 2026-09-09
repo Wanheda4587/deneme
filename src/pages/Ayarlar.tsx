@@ -3,7 +3,7 @@ import type { Backup, MikroHedef } from '../lib/types.ts'
 import { yeniId } from '../lib/kimlik.ts'
 import { Alan, Kart } from '../components/ui/Kart.tsx'
 import { METRIKLER, SUTUNLAR, sutununMetrikleri } from '../lib/metrics.ts'
-import { bugun as bugunIso, gunEkle, uzunTarih } from '../lib/date.ts'
+import { bugun as bugunIso, gunEkle, haftaBasi, uzunTarih } from '../lib/date.ts'
 import { demoUret } from '../lib/demo.ts'
 import { useStore } from '../state/store.tsx'
 import { SenkronKarti } from '../components/SenkronKarti.tsx'
@@ -209,12 +209,22 @@ export function Ayarlar() {
               const ornekHedefler: MikroHedef[] =
                 ayarlar.mikroHedefler.length > 0
                   ? ayarlar.mikroHedefler
-                  : [
-                      { id: yeniId('mikro'), metrikId: 'kitapDk', hedef: 300, tur: 'toplam', yon: 'enAz', aktif: true },
-                      { id: yeniId('mikro'), metrikId: 'kardiyoDk', hedef: 120, tur: 'toplam', yon: 'enAz', aktif: true },
-                      { id: yeniId('mikro'), metrikId: 'sahneDk', hedef: 150, tur: 'toplam', yon: 'enAz', aktif: true },
-                      { id: yeniId('mikro'), metrikId: 'disiplin', hedef: 75, tur: 'ortalama', yon: 'enAz', aktif: true },
-                    ]
+                  : ([
+                      { metrikId: 'kitapDk', hedef: 300, tur: 'toplam' },
+                      { metrikId: 'kardiyoDk', hedef: 120, tur: 'toplam' },
+                      { metrikId: 'sahneDk', hedef: 150, tur: 'toplam' },
+                      { metrikId: 'disiplin', hedef: 75, tur: 'ortalama' },
+                    ] as const).map((x) => ({
+                      id: yeniId('mikro'),
+                      kaynak: 'metrik' as const,
+                      metrikId: x.metrikId,
+                      hedef: x.hedef,
+                      tur: x.tur,
+                      yon: 'enAz' as const,
+                      aktif: true,
+                      baslangic: haftaBasi(bugunIso()),
+                      gunSayisi: 7,
+                    }))
               ayarGuncelle({ kampBaslangic: yeniBaslangic, mikroHedefler: ornekHedefler })
               const { gunler: g, haftalar: h } = demoUret(
                 bugunIso(), DEMO_GUN, yeniBaslangic, ayarlar.kampGunSayisi,
