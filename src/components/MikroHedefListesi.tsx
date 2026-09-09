@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { IlerlemeCubugu, sutunRengi } from './ui/Kart.tsx'
+import { OzelHedefDetay } from './OzelHedefDetay.tsx'
 import { bugun as bugunIso, kisaTarih } from '../lib/date.ts'
 import { mikroBicim, mikroDurum } from '../lib/stats.ts'
 import type { MikroDurum } from '../lib/stats.ts'
@@ -7,10 +9,16 @@ import { useStore } from '../state/store.tsx'
 export function DurumSatiri({
   durum,
   tarihGoster = true,
+  detayAcilabilir = false,
 }: {
   durum: MikroDurum
   tarihGoster?: boolean
+  /** Özel hedeflerde satıra tıklayınca gün gün döküm açılsın mı. */
+  detayAcilabilir?: boolean
 }) {
+  const { gunler } = useStore()
+  const [detayAcik, setDetayAcik] = useState(false)
+  const detayVar = detayAcilabilir && durum.hedef.kaynak === 'ozel'
   const { hedef, baslik, pillar, simdi, kalan, oran, tamam, kalanGun, gunlukGereken, bitis, asama } =
     durum
   const renk = sutunRengi(pillar)
@@ -29,8 +37,8 @@ export function DurumSatiri({
             ? 'var(--d-iyi)'
             : renk
 
-  return (
-    <div className="alan">
+  const govde = (
+    <>
       <div className="flex items-baseline justify-between gap-2 mb-1.5">
         <span className="text-sm font-medium flex items-center gap-2 min-w-0">
           <span
@@ -89,6 +97,31 @@ export function DurumSatiri({
               : 'süre doldu'}
         </span>
       </div>
+    </>
+  )
+
+  if (!detayVar) return <div className="alan">{govde}</div>
+
+  return (
+    <div className="alan" style={{ paddingBottom: detayAcik ? 0 : undefined }}>
+      <button
+        type="button"
+        className="w-full text-left"
+        aria-expanded={detayAcik}
+        aria-label={`${baslik} — gün gün dökümü`}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        onClick={() => setDetayAcik((o) => !o)}
+      >
+        {govde}
+        <div className="text-xs mt-1" style={{ color: 'var(--c-ink-3)' }}>
+          {detayAcik ? '▲ dökümü gizle' : '▼ gün gün dökümü'}
+        </div>
+      </button>
+      {detayAcik && (
+        <div className="-mx-4">
+          <OzelHedefDetay hedef={hedef} kayitlar={gunler} bugun={bugunIso()} />
+        </div>
+      )}
     </div>
   )
 }
@@ -100,9 +133,11 @@ export function DurumSatiri({
 export function MikroHedefListesi({
   bosMesaj = 'Şu an devam eden hedef yok. Mikro Hedefler ekranından ekleyebilirsin.',
   enFazla,
+  detayAcilabilir = false,
 }: {
   bosMesaj?: string
   enFazla?: number
+  detayAcilabilir?: boolean
 }) {
   const { gunler, ayarlar } = useStore()
   const bugun = bugunIso()
@@ -127,7 +162,7 @@ export function MikroHedefListesi({
   return (
     <>
       {gosterilecek.map((d) => (
-        <DurumSatiri key={d.hedef.id} durum={d} />
+        <DurumSatiri key={d.hedef.id} durum={d} detayAcilabilir={detayAcilabilir} />
       ))}
       {enFazla && durumlar.length > enFazla && (
         <p className="alan text-xs" style={{ color: 'var(--c-ink-3)' }}>

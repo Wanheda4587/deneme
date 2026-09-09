@@ -7,8 +7,9 @@ import {
 import type { MetricDef, MetrikId } from '../lib/metrics.ts'
 import { useStore } from '../state/store.tsx'
 import { Alan, Kart } from './ui/Kart.tsx'
-import { EvetHayir, MetinAlani, MetrikAlani } from './ui/Girdiler.tsx'
+import { EvetHayir, MetinAlani, MetrikAlani, Sayi, Yuzde } from './ui/Girdiler.tsx'
 import { gunEkle } from '../lib/date.ts'
+import { ozelGunBasarili } from '../lib/stats.ts'
 
 /**
  * Bir günün tüm giriş alanları. Bölümler ve alanlar METRİKLER kayıt defterinden
@@ -96,23 +97,66 @@ export function GunFormu({ date }: { date: string }) {
         )
       })}
 
-      {/* O gün süresi devam eden özel hedefler — gün gün işaretlenir */}
+      {/* O gün süresi devam eden özel hedefler — giriş tipine göre alan çıkar */}
       {ozelHedefler.length > 0 && (
         <Kart baslik="Kendi hedeflerin" ikon="✍️" pillar="disiplin">
           {ozelHedefler.map((h) => {
-            const isaret = kayit.ozelHedefler?.[h.id]
+            const tip = h.girisTipi ?? 'evetHayir'
+            const ham = kayit.ozelHedefler?.[h.id]
+            const yaz = (v: number | boolean | undefined) => {
+              const mevcut = { ...(kayit.ozelHedefler ?? {}) }
+              if (v === undefined) delete mevcut[h.id]
+              else mevcut[h.id] = v
+              gunGuncelle(date, { ozelHedefler: mevcut })
+            }
+            const basarili = ozelGunBasarili(h, kayit)
+            const esikYazisi =
+              tip === 'evetHayir'
+                ? undefined
+                : `${h.yon === 'enFazla' ? 'En fazla' : 'En az'} ${h.gunlukEsik ?? 0}${
+                    tip === 'puan' ? ' puan' : h.ozelBirim ? ` ${h.ozelBirim}` : ''
+                  } → o gün başarılı sayılır`
+
             return (
-              <Alan key={h.id} etiket={h.baslik ?? 'Hedef'}>
-                <EvetHayir
-                  deger={isaret}
-                  onChange={(v) => {
-                    const mevcut = { ...(kayit.ozelHedefler ?? {}) }
-                    if (v === undefined) delete mevcut[h.id]
-                    else mevcut[h.id] = v
-                    gunGuncelle(date, { ozelHedefler: mevcut })
-                  }}
-                  etiketi={h.baslik ?? 'Hedef'}
-                />
+              <Alan
+                key={h.id}
+                etiket={h.baslik ?? 'Hedef'}
+                ipucu={esikYazisi}
+                sag={
+                  basarili === null ? undefined : (
+                    <span
+                      className={`rozet ${basarili ? 'rozet-iyi' : 'rozet-kotu'}`}
+                      style={{ marginBottom: '0.5rem' }}
+                    >
+                      <span aria-hidden="true">{basarili ? '✓' : '✕'}</span>
+                      {basarili ? 'başarılı' : 'olmadı'}
+                    </span>
+                  )
+                }
+              >
+                {tip === 'evetHayir' ? (
+                  <EvetHayir
+                    deger={typeof ham === 'boolean' ? ham : undefined}
+                    onChange={yaz}
+                    etiketi={h.baslik ?? 'Hedef'}
+                  />
+                ) : tip === 'puan' ? (
+                  <Yuzde
+                    deger={typeof ham === 'number' ? ham : undefined}
+                    onChange={yaz}
+                    etiketi={h.baslik ?? 'Hedef'}
+                  />
+                ) : (
+                  <Sayi
+                    deger={typeof ham === 'number' ? ham : undefined}
+                    onChange={yaz}
+                    min={0}
+                    max={100000}
+                    adim={1}
+                    birim={h.ozelBirim}
+                    etiketi={h.baslik ?? 'Hedef'}
+                  />
+                )}
               </Alan>
             )
           })}

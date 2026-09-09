@@ -34,8 +34,11 @@ export interface DayEntry {
   gelirVerimi?: number // %0-100
   gelirNotu?: string
 
-  /** Özel mikro hedeflerin o günkü işareti: hedef id → yapıldı mı. */
-  ozelHedefler?: Record<string, boolean>
+  /**
+   * Özel mikro hedeflerin o günkü girişi: hedef id → değer.
+   * Evet/Hayır hedefinde boolean, puan ve sayı hedefinde sayı tutulur.
+   */
+  ozelHedefler?: Record<string, number | boolean>
 
   gunNotu?: string
   updatedAt: string
@@ -94,6 +97,9 @@ export type MikroKaynak = 'metrik' | 'ozel'
 /** Süre dolduktan sonra kullanıcının verdiği karar. */
 export type MikroSonuc = 'basarili' | 'basarisiz'
 
+/** Özel hedefte günlük girişin nasıl yapılacağı. */
+export type OzelGirisTipi = 'evetHayir' | 'puan' | 'sayi'
+
 /**
  * Belirli bir süre için konan somut hedef.
  * İki türü var:
@@ -108,6 +114,12 @@ export interface MikroHedef {
   metrikId?: string
   /** kaynak === 'ozel' iken dolu — kullanıcının kendi yazdığı başlık. */
   baslik?: string
+  /** kaynak === 'ozel' iken günlük girişin tipi. Tanımsızsa evet/hayır. */
+  girisTipi?: OzelGirisTipi
+  /** Puan/sayı girişinde o günü başarılı saymak için gereken eşik. */
+  gunlukEsik?: number
+  /** Sayı girişinde birim (dk, sayfa, adet…). */
+  ozelBirim?: string
 
   /** Metrik hedefinde ölçü değeri, özel hedefte "kaç gün" hedefi. */
   hedef: number

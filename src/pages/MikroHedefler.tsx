@@ -4,7 +4,7 @@ import { Sayi } from '../components/ui/Girdiler.tsx'
 import { DurumSatiri, MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
 import { METRIKLER, SUTUN_HARITASI, metrik } from '../lib/metrics.ts'
 import type { MetrikId } from '../lib/metrics.ts'
-import type { MikroHedef, MikroSonuc, MikroTur, MikroYon } from '../lib/types.ts'
+import type { MikroHedef, MikroSonuc, MikroTur, MikroYon, OzelGirisTipi } from '../lib/types.ts'
 import { yeniId } from '../lib/kimlik.ts'
 import { bugun as bugunIso, gunEkle, kisaTarih, uzunTarih } from '../lib/date.ts'
 import { mikroDurum, varsayilanTur } from '../lib/stats.ts'
@@ -103,7 +103,7 @@ export function MikroHedefler() {
 
       {/* Devam edenler */}
       <Kart baslik="Devam eden hedefler" ikon="🎯">
-        <MikroHedefListesi bosMesaj="Devam eden hedef yok. Aşağıdan ekleyebilirsin." />
+        <MikroHedefListesi bosMesaj="Devam eden hedef yok. Aşağıdan ekleyebilirsin." detayAcilabilir />
       </Kart>
 
       {/* Yönetim */}
@@ -170,14 +170,30 @@ export function MikroHedefler() {
                     style={{ background: 'var(--c-card-2)', border: '1px solid var(--c-cizgi)' }}
                   >
                     {ozel && (
-                      <Alan etiket="Hedefin">
-                        <input
-                          className="girdi"
-                          value={h.baslik ?? ''}
-                          onChange={(e) => yaz(h.id, { baslik: e.target.value })}
-                          aria-label="Hedef başlığı"
+                      <>
+                        <Alan etiket="Hedefin">
+                          <input
+                            className="girdi"
+                            value={h.baslik ?? ''}
+                            onChange={(e) => yaz(h.id, { baslik: e.target.value })}
+                            aria-label="Hedef başlığı"
+                          />
+                        </Alan>
+                        <GirisTipiSecici
+                          girisTipi={h.girisTipi ?? 'evetHayir'}
+                          gunlukEsik={h.gunlukEsik}
+                          ozelBirim={h.ozelBirim ?? 'dk'}
+                          onTip={(t) =>
+                            yaz(h.id, {
+                              girisTipi: t,
+                              gunlukEsik: t === 'evetHayir' ? undefined : (h.gunlukEsik ?? 70),
+                              ozelBirim: t === 'sayi' ? (h.ozelBirim ?? 'dk') : undefined,
+                            })
+                          }
+                          onEsik={(v) => yaz(h.id, { gunlukEsik: v })}
+                          onBirim={(b) => yaz(h.id, { ozelBirim: b })}
                         />
-                      </Alan>
+                      </>
                     )}
 
                     {!ozel && (
@@ -304,7 +320,7 @@ export function MikroHedefler() {
           <>
             {gecmis.map((d) => (
               <div key={d.hedef.id}>
-                <DurumSatiri durum={d} />
+                <DurumSatiri durum={d} detayAcilabilir />
                 {d.hedef.sonucNotu && (
                   <p className="px-4 pb-3 text-xs" style={{ color: 'var(--c-ink-3)' }}>
                     “{d.hedef.sonucNotu}”
@@ -338,6 +354,82 @@ function hedefYazisi(tur: MikroTur, tip: string, birim: string | undefined, dege
   if (tur === 'gun') return `${deger} gün`
   if (tip === 'percent') return `%${deger}`
   return birim ? `${deger} ${birim}` : String(deger)
+}
+
+/** Özel hedefte günlük girişin tipi ve başarı eşiği. */
+function GirisTipiSecici({
+  girisTipi,
+  gunlukEsik,
+  ozelBirim,
+  onTip,
+  onEsik,
+  onBirim,
+}: {
+  girisTipi: OzelGirisTipi
+  gunlukEsik: number | undefined
+  ozelBirim: string
+  onTip: (t: OzelGirisTipi) => void
+  onEsik: (v: number | undefined) => void
+  onBirim: (b: string) => void
+}) {
+  const secenekler: { id: OzelGirisTipi; ad: string; aciklama: string }[] = [
+    { id: 'evetHayir', ad: 'Evet / Hayır', aciklama: '“Evet” dediğin gün başarılı sayılır.' },
+    { id: 'puan', ad: 'Puan (%)', aciklama: 'Her gün yüzde verirsin; eşiği geçen gün başarılı sayılır.' },
+    { id: 'sayi', ad: 'Sayı', aciklama: 'Her gün bir sayı girersin (dakika, sayfa…); eşiği geçen gün başarılı sayılır.' },
+  ]
+  const secili = secenekler.find((x) => x.id === girisTipi)!
+
+  return (
+    <div>
+      <div className="etiket">Her gün ne gireceksin?</div>
+      <div className="flex flex-wrap gap-2">
+        {secenekler.map((x) => (
+          <button
+            key={x.id}
+            type="button"
+            className="dugme text-sm"
+            aria-pressed={girisTipi === x.id}
+            style={girisTipi === x.id ? { borderColor: 'var(--p-disiplin)', color: 'var(--c-ink)' } : undefined}
+            onClick={() => onTip(x.id)}
+          >
+            {x.ad}
+          </button>
+        ))}
+      </div>
+      <p className="ipucu">{secili.aciklama}</p>
+
+      {girisTipi !== 'evetHayir' && (
+        <div className="flex flex-wrap gap-3 mt-2">
+          <label className="flex-1 min-w-32">
+            <span className="text-xs block mb-1" style={{ color: 'var(--c-ink-3)' }}>
+              Günlük başarı eşiği
+            </span>
+            <Sayi
+              deger={gunlukEsik}
+              onChange={onEsik}
+              min={0}
+              max={girisTipi === 'puan' ? 100 : 100000}
+              adim={girisTipi === 'puan' ? 5 : 1}
+              birim={girisTipi === 'puan' ? '%' : ozelBirim}
+              etiketi="Günlük başarı eşiği"
+            />
+          </label>
+          {girisTipi === 'sayi' && (
+            <label className="flex-1 min-w-24">
+              <span className="text-xs block mb-1" style={{ color: 'var(--c-ink-3)' }}>Birim</span>
+              <input
+                className="girdi"
+                value={ozelBirim}
+                placeholder="dk"
+                aria-label="Birim"
+                onChange={(e) => onBirim(e.target.value)}
+              />
+            </label>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Süre ve başlangıç seçimi — hazır süreler artı serbest giriş. */
@@ -467,6 +559,9 @@ function YeniHedefFormu({
   const [baslik, setBaslik] = useState('')
   const [gunSayisi, setGunSayisi] = useState(15)
   const [baslangic, setBaslangic] = useState(bugunIso())
+  const [girisTipi, setGirisTipi] = useState<OzelGirisTipi>('evetHayir')
+  const [gunlukEsik, setGunlukEsik] = useState<number | undefined>(70)
+  const [ozelBirim, setOzelBirim] = useState('dk')
 
   if (kaynak === null) {
     return (
@@ -539,7 +634,7 @@ function YeniHedefFormu({
   const gecerli = baslik.trim().length > 0
   return (
     <div className="flex flex-col gap-3">
-      <Alan etiket="Hedefin ne?" ipucu="Gün gün “yaptım / yapmadım” diye işaretleyeceksin.">
+      <Alan etiket="Hedefin ne?">
         <input
           className="girdi"
           value={baslik}
@@ -549,6 +644,15 @@ function YeniHedefFormu({
           onChange={(e) => setBaslik(e.target.value)}
         />
       </Alan>
+
+      <GirisTipiSecici
+        girisTipi={girisTipi}
+        gunlukEsik={gunlukEsik}
+        ozelBirim={ozelBirim}
+        onTip={setGirisTipi}
+        onEsik={setGunlukEsik}
+        onBirim={setOzelBirim}
+      />
       <SureSecici
         gunSayisi={gunSayisi}
         baslangic={baslangic}
@@ -564,6 +668,9 @@ function YeniHedefFormu({
             onEkle({
               kaynak: 'ozel',
               baslik: baslik.trim(),
+              girisTipi,
+              gunlukEsik: girisTipi === 'evetHayir' ? undefined : (gunlukEsik ?? 0),
+              ozelBirim: girisTipi === 'sayi' ? ozelBirim : undefined,
               hedef: gunSayisi,
               tur: 'gun',
               yon: 'enAz',

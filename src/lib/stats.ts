@@ -237,13 +237,90 @@ export function mikroGunleri(hedef: MikroHedef): string[] {
   return gunAraligi(hedef.baslangic, hedef.gunSayisi)
 }
 
-/** Özel hedefte dönem içinde kaç gün işaretlenmiş. */
+/** Bir güne özel hedef için girilen ham değer. */
+export function ozelGunDegeri(
+  hedef: MikroHedef,
+  kayit: DayEntry | undefined,
+): number | boolean | undefined {
+  return kayit?.ozelHedefler?.[hedef.id]
+}
+
+/**
+ * O gün hedef tutmuş mu?
+ * Evet/Hayır hedefinde "evet" başarıdır. Puan ve sayı hedefinde günlük eşik
+ * karşılaştırılır; yön "en fazla" ise eşiğin altında kalmak başarıdır.
+ */
+export function ozelGunBasarili(
+  hedef: MikroHedef,
+  kayit: DayEntry | undefined,
+): boolean | null {
+  const v = ozelGunDegeri(hedef, kayit)
+  if (v === undefined || v === null) return null
+  if (typeof v === 'boolean') return v
+  const esik = hedef.gunlukEsik ?? 0
+  return hedef.yon === 'enFazla' ? v <= esik : v >= esik
+}
+
+/** Özel hedefte dönem içinde kaç gün başarılı olunmuş. */
 export function ozelHedefSayisi(
   hedef: MikroHedef,
   kayitlar: Map<string, DayEntry>,
 ): number {
-  return mikroGunleri(hedef).filter((g) => kayitlar.get(g)?.ozelHedefler?.[hedef.id] === true)
-    .length
+  return mikroGunleri(hedef).filter((g) => ozelGunBasarili(hedef, kayitlar.get(g)) === true).length
+}
+
+export interface OzelGunDurumu {
+  tarih: string
+  deger: number | boolean | undefined
+  basarili: boolean | null
+  gelecek: boolean
+}
+
+/** Özel hedefin gün gün dökümü — şerit ve trend görünümü için. */
+export function ozelGunDokumu(
+  hedef: MikroHedef,
+  kayitlar: Map<string, DayEntry>,
+  bugunIso: string,
+): OzelGunDurumu[] {
+  return mikroGunleri(hedef).map((tarih) => ({
+    tarih,
+    deger: ozelGunDegeri(hedef, kayitlar.get(tarih)),
+    basarili: ozelGunBasarili(hedef, kayitlar.get(tarih)),
+    gelecek: tarih > bugunIso,
+  }))
+}
+
+export interface OzelOzet {
+  /** Bugüne kadar geçen gün sayısı (gelecek günler hariç). */
+  gecenGun: number
+  basariliGun: number
+  /** Geçen günler içinde başarı yüzdesi. */
+  oran: number | null
+  /** Şu anki üst üste başarı serisi. */
+  guncelSeri: number
+  enUzunSeri: number
+}
+
+export function ozelOzet(dokum: OzelGunDurumu[]): OzelOzet {
+  const gecmis = dokum.filter((g) => !g.gelecek)
+  const basariliGun = gecmis.filter((g) => g.basarili === true).length
+  let guncelSeri = 0
+  let enUzunSeri = 0
+  for (const g of gecmis) {
+    if (g.basarili === true) {
+      guncelSeri++
+      if (guncelSeri > enUzunSeri) enUzunSeri = guncelSeri
+    } else {
+      guncelSeri = 0
+    }
+  }
+  return {
+    gecenGun: gecmis.length,
+    basariliGun,
+    oran: gecmis.length === 0 ? null : (basariliGun / gecmis.length) * 100,
+    guncelSeri,
+    enUzunSeri,
+  }
 }
 
 export function mikroDurum(
