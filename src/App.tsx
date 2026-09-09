@@ -54,7 +54,7 @@ function Ekran({ sekme, git }: { sekme: SekmeId; git: (s: SekmeId) => void }) {
     case 'hafta': return <Hafta />
     case 'trendler': return <Suspense fallback={<Yukleniyor />}><Trendler /></Suspense>
     case 'hedefler': return <Suspense fallback={<Yukleniyor />}><Hedefler /></Suspense>
-    case 'mikro': return <MikroHedefler />
+    case 'mikro': return <MikroHedefler git={git} />
     case 'gecmis': return <Gecmis />
     case 'ayarlar': return <Ayarlar />
   }

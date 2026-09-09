@@ -4,10 +4,10 @@ import { Sayi } from '../components/ui/Girdiler.tsx'
 import { DurumSatiri, MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
 import { METRIKLER, SUTUN_HARITASI, metrik } from '../lib/metrics.ts'
 import type { MetrikId } from '../lib/metrics.ts'
-import type { MikroHedef, MikroSonuc, MikroTur, MikroYon, OzelGirisTipi } from '../lib/types.ts'
+import type { DayEntry, MikroHedef, MikroSonuc, MikroTur, MikroYon, OzelGirisTipi } from '../lib/types.ts'
 import { yeniId } from '../lib/kimlik.ts'
 import { bugun as bugunIso, gunEkle, kisaTarih, uzunTarih } from '../lib/date.ts'
-import { mikroDurum, varsayilanTur } from '../lib/stats.ts'
+import { mikroDurum, ozelGunBasarili, varsayilanTur } from '../lib/stats.ts'
 import type { MikroDurum } from '../lib/stats.ts'
 import { useStore } from '../state/store.tsx'
 
@@ -25,7 +25,7 @@ const TUR_ACIKLAMA: Record<MikroTur, string> = {
 
 const HAZIR_SURELER = [7, 15, 30, 60]
 
-export function MikroHedefler() {
+export function MikroHedefler({ git }: { git?: (s: 'bugun') => void }) {
   const { gunler, ayarlar, ayarGuncelle } = useStore()
   const [duzenlenen, setDuzenlenen] = useState<string | null>(null)
   const [silinecek, setSilinecek] = useState<string | null>(null)
@@ -72,6 +72,14 @@ export function MikroHedefler() {
     .filter((d): d is MikroDurum => d !== null)
 
   const sonucBekleyenler = durumlar.filter((d) => d.asama === 'sonucBekliyor')
+
+  // Bugüne denk gelen özel hedefler — işaretleme Bugün ekranında yapılıyor,
+  // buradan bulunamıyordu; o yüzden yolu gösteren bir satır koyuyoruz.
+  const bugunIsaretlenecek = durumlar
+    .filter((d) => d.asama === 'devam' && d.hedef.kaynak === 'ozel')
+    .map((d) => d.hedef)
+    .filter((h) => h.baslangic <= bugun && bugun <= gunEkle(h.baslangic, h.gunSayisi - 1))
+
   const gecmis = durumlar
     .filter((d) => d.asama === 'kapandi')
     .sort((a, b) => b.bitis.localeCompare(a.bitis))
@@ -104,6 +112,13 @@ export function MikroHedefler() {
       {/* Devam edenler */}
       <Kart baslik="Devam eden hedefler" ikon="🎯">
         <MikroHedefListesi bosMesaj="Devam eden hedef yok. Aşağıdan ekleyebilirsin." detayAcilabilir />
+        {bugunIsaretlenecek.length > 0 && (
+          <BugunHatirlatici
+            hedefler={bugunIsaretlenecek}
+            kayit={gunler.get(bugun)}
+            git={git}
+          />
+        )}
       </Kart>
 
       {/* Yönetim */}
@@ -488,6 +503,47 @@ function SureSecici({
       <p className="ipucu">
         Bitiş: {uzunTarih(gunEkle(baslangic, Math.max(gunSayisi, 1) - 1))}
       </p>
+    </div>
+  )
+}
+
+/**
+ * "Veriyi nereye giriyorum?" sorusunun cevabı. Kendi hedeflerinin günlük
+ * işaretlemesi Bugün ekranında yapılıyor; burada yalnızca durum görünüyor.
+ */
+function BugunHatirlatici({
+  hedefler,
+  kayit,
+  git,
+}: {
+  hedefler: MikroHedef[]
+  kayit: DayEntry | undefined
+  git?: (s: 'bugun') => void
+}) {
+  const eksik = hedefler.filter((h) => ozelGunBasarili(h, kayit) === null)
+  const tamam = eksik.length === 0
+
+  return (
+    <div className="alan flex flex-wrap items-center justify-between gap-2">
+      <p className="text-sm" style={{ color: 'var(--c-ink-3)' }}>
+        {tamam ? (
+          <>
+            <span aria-hidden="true">✓ </span>
+            Bugünün işaretlemesi tamam.
+          </>
+        ) : (
+          <>
+            Bugün {eksik.length === hedefler.length ? '' : `${eksik.length} hedef `}işaretlenmedi.
+            İşaretlemeyi <strong>Bugün</strong> ekranının en altındaki{' '}
+            <strong>“Kendi hedeflerin”</strong> bölümünden yapıyorsun.
+          </>
+        )}
+      </p>
+      {git && (
+        <button type="button" className="dugme dugme-ince" onClick={() => git('bugun')}>
+          Bugün’e git →
+        </button>
+      )}
     </div>
   )
 }
