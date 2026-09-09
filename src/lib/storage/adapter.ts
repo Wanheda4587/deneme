@@ -28,4 +28,6 @@ export const VARSAYILAN_AYARLAR: Settings = {
     { id: 'kilo', label: 'Kilo', baslangic: 79.3, hedef: null, birim: 'kg' },
   ],
   mikroHedefler: [],
+  kaloriGunlukAcikHedefi: 350,
+  kaloriPlanGun: 7,
 }

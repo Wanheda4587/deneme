@@ -176,8 +176,11 @@ export function Trendler() {
         const seri = metrikSerisi(pencere, gunler, def.id)
         const degerler = seri.map((n) => n.deger)
         const biriken = birikenMi(def.id)
+        const gunlukOrt = pencere.length > 0 ? toplam(degerler) / pencere.length : 0
         const ozet = biriken
-          ? `toplam ${Math.round(toplam(degerler))}${def.birim ? ` ${def.birim}` : ''}`
+          ? def.type === 'sure'
+            ? `top. ${sureBicimi(toplam(degerler))} · günde ${sureBicimi(gunlukOrt)}`
+            : `top. ${Math.round(toplam(degerler))}${def.birim ? ` ${def.birim}` : ''} · günde ${Math.round(gunlukOrt)}`
           : def.type === 'bool'
             ? `${degerler.filter((d) => d === 1).length} gün`
             : (() => {
@@ -224,7 +227,9 @@ export function Trendler() {
                     {kaloriKamp.doluGun === 0 ? '—' : kaloriBicimi(kaloriKamp.net)}
                   </div>
                   <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
-                    {kaloriKamp.doluGun} günün toplamı
+                    {kaloriKamp.doluGun === 0
+                      ? 'giriş yok'
+                      : `günde ort. ${Math.round(Math.abs(kaloriKamp.net) / Math.max(kampBugune.length, 1))} kcal`}
                   </div>
                 </div>
                 <div>
@@ -233,7 +238,9 @@ export function Trendler() {
                     {kaloriHafta.doluGun === 0 ? '—' : kaloriBicimi(kaloriHafta.net)}
                   </div>
                   <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
-                    {kaloriHafta.doluGun} günün toplamı
+                    {kaloriHafta.doluGun === 0
+                      ? 'giriş yok'
+                      : `günde ort. ${Math.round(Math.abs(kaloriHafta.net) / 7)} kcal`}
                   </div>
                 </div>
               </div>

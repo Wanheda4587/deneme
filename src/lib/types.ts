@@ -45,7 +45,7 @@ export interface DayEntry {
 export interface WeekEntry {
   weekStart: string
 
-  ozguven?: number // 1-10
+  ozguven?: number // %0-100
   ozguvenNotu?: string
 
   /** Ölçüm hedefi id'si → o hafta girilen değer. Haftada TEK giriş, sonra kilitlenir. */
@@ -102,6 +102,10 @@ export interface Settings {
   tema: 'dark' | 'light'
   olcumHedefleri: OlcumHedefi[]
   mikroHedefler: MikroHedef[]
+  /** Hedeflenen GÜNLÜK ortalama kalori açığı (pozitif sayı, örn. 350). */
+  kaloriGunlukAcikHedefi: number
+  /** "Önümüzdeki kaç günde" hesabının penceresi. */
+  kaloriPlanGun: number
   /** Son değişiklik zamanı — senkronda hangi cihazın ayarı kazanacağını belirler. */
   guncellendi?: string
 }

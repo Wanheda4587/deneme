@@ -101,6 +101,29 @@ export function MetrikGrafigi({
   // (tek bir -850 için -848…-852 gibi); bu durumda aralık genişletilir.
   // İşaretli metriklerde sıfır her zaman eksende kalır, artı/eksi okunabilsin.
   const sayisal = seri.map((n) => n.deger).filter((v): v is number => v !== null)
+  /**
+   * Yüzde ekseni: 0-100 sabit kalırsa 50-100 arasında gezinen veride
+   * çizgi sıkışıyor ve değer okunamıyor. Veri aralığına yakınlaşıp
+   * tikleri sıklaştırıyoruz.
+   */
+  const yuzdeEkseni = (): { alan: [number, number]; tikler: number[] } => {
+    if (sayisal.length === 0) return { alan: [0, 100], tikler: [0, 25, 50, 75, 100] }
+    const enAz = Math.min(...sayisal)
+    const enCok = Math.max(...sayisal)
+    // 10'un katlarına yuvarlayıp bir kademe pay bırak
+    let alt = Math.max(0, Math.floor((enAz - 5) / 10) * 10)
+    let ust = Math.min(100, Math.ceil((enCok + 5) / 10) * 10)
+    if (ust - alt < 20) {
+      alt = Math.max(0, alt - 10)
+      ust = Math.min(100, ust + 10)
+    }
+    const menzil = ust - alt
+    const adim = menzil <= 30 ? 5 : 10
+    const tikler: number[] = []
+    for (let v = alt; v <= ust + 0.001; v += adim) tikler.push(Math.round(v))
+    return { alan: [alt, ust], tikler }
+  }
+
   const sayiAraligi = (): [number, number] | undefined => {
     if (sayisal.length === 0) return undefined
     let alt = Math.min(...sayisal)
@@ -145,9 +168,10 @@ export function MetrikGrafigi({
                 def.type === 'scale'
                   ? [0, 10]
                   : def.type === 'percent'
-                    ? [0, 100]
+                    ? yuzdeEkseni().alan
                     : (sayiAraligi() ?? ['auto', 'auto'])
               }
+              ticks={def.type === 'percent' ? yuzdeEkseni().tikler : undefined}
             />
             <Tooltip cursor={{ stroke: renk.ink3, strokeWidth: 1 }} content={<Balon def={def} ortalamaGoster />} />
             {/* Ham günlük değer: ince, noktalı — tek tek günler görünsün */}

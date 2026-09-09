@@ -71,7 +71,8 @@ export function MikroHedefler() {
   }
 
   const kullanilan = new Set(mikroHedefler.map((h) => h.metrikId))
-  const eklenebilir = METRIKLER.filter((m) => !kullanilan.has(m.id) && m.type !== 'bool')
+  // Evet/Hayır metrikleri de hedeflenebilir — 'kaç gün yaptım' olarak ölçülür.
+  const eklenebilir = METRIKLER.filter((m) => !kullanilan.has(m.id))
 
   return (
     <div className="flex flex-col gap-4">
@@ -149,7 +150,10 @@ export function MikroHedefler() {
                   <div>
                     <div className="etiket">Nasıl ölçülsün?</div>
                     <div className="flex flex-wrap gap-2">
-                      {(['toplam', 'ortalama', 'gun'] as MikroTur[]).map((t) => (
+                      {(def.type === 'bool'
+                        ? (['gun'] as MikroTur[])
+                        : (['toplam', 'ortalama', 'gun'] as MikroTur[])
+                      ).map((t) => (
                         <button
                           key={t}
                           type="button"

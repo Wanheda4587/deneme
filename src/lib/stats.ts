@@ -121,7 +121,7 @@ export function haftaOzeti(
 }
 
 /** Metriğin doğal özet biçimi: süreler toplanır, puanlar ortalanır. */
-const BIRIKENLER = new Set<string>(['sahneDk', 'kitapDk', 'gelirDk', 'kardiyoDk'])
+const BIRIKENLER = new Set<string>(['sahneDk', 'kitapDk', 'gelirDk', 'kardiyoDk', 'isSaati'])
 
 export function birikenMi(id: MetrikId): boolean {
   return BIRIKENLER.has(id)
@@ -299,4 +299,62 @@ export function kaloriOzeti(
 ): KaloriOzeti {
   const degerler = gunler.map((g) => metrikDegeri(kayitlar.get(g), 'kaloriDengesi'))
   return { net: toplam(degerler), doluGun: doluGunSayisi(degerler) }
+}
+
+// ── Kalori planı ───────────────────────────────────────────────────────────
+
+export interface KaloriPlani {
+  /** Bugüne kadar biriken açık (pozitif = açık verilmiş). */
+  birikenAcik: number
+  /** Kamp başından bugüne geçen gün sayısı. */
+  gecenGun: number
+  /** Kaç güne kalori girilmiş — ortalamanın ne kadar güvenilir olduğunu söyler. */
+  doluGun: number
+  /** Geçen güne bölünmüş mevcut günlük ortalama açık. */
+  mevcutOrtalama: number
+  /** Hedeflenen günlük ortalama açık. */
+  hedefOrtalama: number
+  /** Planlanan gün sayısı. */
+  planGun: number
+  /** Hedefe ulaşmak için önümüzdeki planGun içinde gereken GÜNLÜK açık. */
+  gerekenGunluk: number
+  /** Hedef zaten tutmuşsa true — gereken günlük açık sıfır ya da eksi çıkar. */
+  hedefTutuyor: boolean
+}
+
+/**
+ * "Şu ana kadar şu kadar açık verdim; günlük ortalamayı hedefe çekmek için
+ * önümüzdeki N günde günde kaç kalori açık gerekli?" hesabı.
+ *
+ * Kalori dengesi eksi değerle saklanır (açık); burada okunurluk için
+ * pozitif "açık" olarak çevrilir.
+ */
+export function kaloriPlani(
+  gunler: string[],
+  kayitlar: Map<string, DayEntry>,
+  gecenGun: number,
+  hedefOrtalama: number,
+  planGun: number,
+): KaloriPlani {
+  const ozet = kaloriOzeti(gunler, kayitlar)
+  const birikenAcik = -ozet.net
+  const bolen = Math.max(gecenGun, 1)
+  const mevcutOrtalama = birikenAcik / bolen
+
+  // Hedef ortalamayı (gecenGun + planGun) gün üzerinden tutturmak için
+  // toplam ne kadar açık gerektiğini bulup, birikenden kalanı güne böleriz.
+  const gerekenToplam = hedefOrtalama * (bolen + planGun)
+  const kalan = gerekenToplam - birikenAcik
+  const gerekenGunluk = planGun > 0 ? kalan / planGun : 0
+
+  return {
+    birikenAcik,
+    gecenGun: bolen,
+    doluGun: ozet.doluGun,
+    mevcutOrtalama,
+    hedefOrtalama,
+    planGun,
+    gerekenGunluk,
+    hedefTutuyor: kalan <= 0,
+  }
 }

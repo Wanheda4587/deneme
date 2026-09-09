@@ -7,7 +7,7 @@ import { VARSAYILAN_AYARLAR } from './adapter.ts'
 const ANAHTAR = 'kamp90:v1'
 
 /** Şema sürümü. Göçlerin bir kez çalışmasını sağlar. */
-const SEMA_SURUMU = 2
+const SEMA_SURUMU = 3
 
 interface Depo {
   surum?: number
@@ -43,6 +43,22 @@ function goc(depo: Depo): boolean {
         }
       }
     }
+    degisti = true
+  }
+
+  // Sürüm 3: haftalık özgüven puanı 1-10'dan yüzdeye geçti (7 → %70).
+  if (surum < 3) {
+    for (const hafta of Object.values(depo.weeks)) {
+      const v = hafta.ozguven
+      if (typeof v === 'number' && Number.isFinite(v) && v <= 10) {
+        hafta.ozguven = Math.round(v * 10 * 10) / 10
+        degisti = true
+      }
+    }
+    degisti = true
+  }
+
+  if (surum < SEMA_SURUMU) {
     depo.surum = SEMA_SURUMU
     degisti = true
   }

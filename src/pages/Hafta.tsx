@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { WeekEntry } from '../lib/types.ts'
 import { Alan, Kart } from '../components/ui/Kart.tsx'
-import { MetinAlani, Olcek, Sayi } from '../components/ui/Girdiler.tsx'
+import { MetinAlani, Sayi, Yuzde } from '../components/ui/Girdiler.tsx'
 import { HaftaKarsilastirma } from '../components/HaftaKarsilastirma.tsx'
 import { MikroHedefListesi } from '../components/MikroHedefListesi.tsx'
 import {
@@ -21,6 +21,7 @@ import {
   haftaOzeti,
   kaloriBicimi,
   kaloriOzeti,
+  kaloriPlani,
   sureBicimi,
   toplam,
   yuzdeDegisim,
@@ -35,7 +36,7 @@ const METIN_ALANLARI = [
 ] as const
 
 export function Hafta() {
-  const { gunler, haftalar, ayarlar, haftaGuncelle } = useStore()
+  const { gunler, haftalar, ayarlar, haftaGuncelle, ayarGuncelle } = useStore()
   const [hafta, setHafta] = useState(() => haftaBasi(bugunIso()))
   const [kilitAcik, setKilitAcik] = useState(false)
 
@@ -70,7 +71,13 @@ export function Hafta() {
   const kampBugüneKadar = kampGunleri(kampBaslangic, kampGunSayisi).filter(
     (g) => gunFarki(g, bugunIso()) >= 0,
   )
-  const toplamKalori = kaloriOzeti(kampBugüneKadar, gunler)
+  const plan = kaloriPlani(
+    kampBugüneKadar,
+    gunler,
+    Math.max(gunFarki(kampBaslangic, bugunIso()) + 1, 1),
+    ayarlar.kaloriGunlukAcikHedefi,
+    ayarlar.kaloriPlanGun,
+  )
   const ozguvenDegisim = yuzdeDegisim(oncekiKayit?.ozguven ?? null, kayit.ozguven ?? null)
 
   const olcumKilitli = kayit.olcumKilitli === true && !kilitAcik
@@ -90,7 +97,7 @@ export function Hafta() {
     { etiket: 'Disiplin', deger: disiplinOrt !== null ? `%${disiplinOrt.toFixed(0)}` : '—', alt: disiplinGecen !== null ? `geçen hafta %${disiplinGecen.toFixed(0)}` : undefined },
     { etiket: 'Sahne', deger: `${sahneTop} dk` },
     { etiket: 'Kitap', deger: `${kitapTop} dk` },
-    { etiket: 'Ek gelir etkin çaba', deger: `${Math.round(gelirCaba)} dk`, alt: 'dakika × verim' },
+    { etiket: 'AI etkin çaba', deger: `${Math.round(gelirCaba)} dk`, alt: 'dakika × verim' },
     { etiket: 'Ortalama uyku', deger: sureBicimi(uykuOrt) },
   ]
 
@@ -133,7 +140,7 @@ export function Hafta() {
           ))}
         </div>
 
-        {/* Kalori dengesi — haftalık net ve kamp başından beri toplam */}
+        {/* Kalori dengesi — haftalık net, biriken açık ve hedefe yetişme planı */}
         <div className="alan">
           <div className="etiket">Kalori dengesi</div>
           <div className="grid grid-cols-2 gap-3">
@@ -157,20 +164,75 @@ export function Hafta() {
             </div>
             <div>
               <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>Kamp başından beri</div>
-              <div
-                className="rakam font-semibold text-lg"
-                style={{ color: toplamKalori.doluGun === 0 ? 'var(--c-ink-3)' : undefined }}
-              >
-                {toplamKalori.doluGun === 0 ? '—' : kaloriBicimi(toplamKalori.net)}
+              <div className="rakam font-semibold text-lg">
+                {plan.doluGun === 0 ? '—' : kaloriBicimi(-plan.birikenAcik)}
               </div>
-              <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
-                {toplamKalori.doluGun === 0
+              <div className="text-xs rakam" style={{ color: 'var(--c-ink-3)' }}>
+                {plan.doluGun === 0
                   ? 'giriş yok'
-                  : `${toplamKalori.doluGun} günün toplamı`}
+                  : `günde ort. ${Math.round(plan.mevcutOrtalama)} kcal açık`}
               </div>
             </div>
           </div>
-          <p className="ipucu">Eksi = yaktığından az aldın (açık). Artı = fazla aldın.</p>
+          <p className="ipucu">
+            Ortalama {plan.gecenGun} güne bölündü; bunların {plan.doluGun} tanesine giriş yapılmış.
+            Eksi = yaktığından az aldın (açık). Artı = fazla aldın.
+          </p>
+        </div>
+
+        {/* Hedefe yetişme planı */}
+        <div className="alan" style={{ background: 'var(--c-card-2)' }}>
+          <div className="etiket">Hedefe yetişme planı</div>
+          <div className="flex flex-wrap items-end gap-3 mb-3">
+            <label className="flex-1 min-w-32">
+              <span className="text-xs block mb-1" style={{ color: 'var(--c-ink-3)' }}>
+                Günlük hedef açık
+              </span>
+              <Sayi
+                deger={ayarlar.kaloriGunlukAcikHedefi}
+                onChange={(v) => ayarGuncelle({ kaloriGunlukAcikHedefi: v ?? 0 })}
+                min={0}
+                max={2000}
+                adim={25}
+                birim="kcal"
+                etiketi="Günlük hedef açık"
+              />
+            </label>
+            <label className="flex-1 min-w-32">
+              <span className="text-xs block mb-1" style={{ color: 'var(--c-ink-3)' }}>
+                Kaç günde
+              </span>
+              <Sayi
+                deger={ayarlar.kaloriPlanGun}
+                onChange={(v) => ayarGuncelle({ kaloriPlanGun: Math.max(v ?? 1, 1) })}
+                min={1}
+                max={90}
+                adim={1}
+                birim="gün"
+                etiketi="Plan gün sayısı"
+              />
+            </label>
+          </div>
+
+          {plan.hedefTutuyor ? (
+            <p className="text-sm" style={{ color: 'var(--d-iyi)' }}>
+              <span aria-hidden="true">✓</span> Ortalaman zaten hedefin üstünde — bu tempoda
+              kalman yeterli.
+            </p>
+          ) : (
+            <div>
+              <div className="text-xs" style={{ color: 'var(--c-ink-3)' }}>
+                Ortalamayı {plan.hedefOrtalama} kcal'e çekmek için önümüzdeki{' '}
+                {plan.planGun} günde
+              </div>
+              <div className="rakam font-semibold text-2xl" style={{ color: 'var(--p-enerji)' }}>
+                günde {Math.round(plan.gerekenGunluk).toLocaleString('tr-TR')} kcal açık
+              </div>
+              <div className="text-xs rakam mt-1" style={{ color: 'var(--c-ink-3)' }}>
+                toplam {Math.round(plan.gerekenGunluk * plan.planGun).toLocaleString('tr-TR')} kcal
+              </div>
+            </div>
+          )}
         </div>
       </Kart>
 
@@ -189,7 +251,7 @@ export function Hafta() {
             ) : undefined
           }
         >
-          <Olcek
+          <Yuzde
             deger={kayit.ozguven}
             onChange={(v) => guncelle({ ozguven: v })}
             etiketi="Özgüven puanı"

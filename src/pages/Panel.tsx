@@ -251,16 +251,28 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
             const seri = metrikSerisi(pencere, gunler, id)
             const degerler = seri.map((n) => n.deger).filter((v): v is number => v !== null)
             const ort = degerler.length === 0 ? null : degerler.reduce((a, b) => a + b, 0) / degerler.length
+            const biriken = birikenMi(id)
+            // Biriken metriklerde toplam üstte, günlük ortalama altta durur;
+            // "ne kadar yaptım" ve "günde ne kadar yapıyorum" ayrı sorular.
+            const gunlukOrt = biriken ? degerler.reduce((a, b) => a + b, 0) / pencere.length : null
             const ozet =
               ort === null
                 ? '—'
-                : birikenMi(id)
-                  ? `${Math.round(degerler.reduce((a, b) => a + b, 0))} ${def.birim ?? ''}`
+                : biriken
+                  ? def.type === 'sure'
+                    ? sureBicimi(degerler.reduce((a, b) => a + b, 0))
+                    : `${Math.round(degerler.reduce((a, b) => a + b, 0))} ${def.birim ?? ''}`
                   : def.type === 'sure'
                     ? sureBicimi(ort)
                     : def.type === 'percent'
                       ? `%${ort.toFixed(0)}`
                       : ort.toFixed(1)
+            const altYazi =
+              gunlukOrt === null
+                ? null
+                : def.type === 'sure'
+                  ? `günde ${sureBicimi(gunlukOrt)}`
+                  : `günde ${Math.round(gunlukOrt)} ${def.birim ?? ''}`
             return (
               <div key={id} className="min-w-0">
                 <div className="flex items-baseline justify-between gap-1 mb-1">
@@ -272,6 +284,11 @@ export function Panel({ git }: { git: (sekme: string) => void }) {
                   renk={sutunRengi(def.pillar)}
                   etiket={`${def.label} son 14 gün eğilimi`}
                 />
+                {altYazi && (
+                  <div className="text-xs rakam mt-0.5" style={{ color: 'var(--c-ink-3)' }}>
+                    {altYazi}
+                  </div>
+                )}
               </div>
             )
           })}
